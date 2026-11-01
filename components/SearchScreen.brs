@@ -1,18 +1,7 @@
-' SearchScreen — multi-add-on title search. Entry shows a system KeyboardDialog
-' (prefilled with the last query on re-search); OK fans the query out to every
-' search-capable catalog across all installed add-ons. Rows appear only for
-' catalogs that return results — nothing is premised on the screen, so a catalog
-' with no matches (or a failed add-on) simply never shows a row. Each row is
-' titled "{Catalog} - {mediaType}" ("Popular - Movies", "HD - Tv channel").
-'
-' Sources are resolved once per installed add-on set through the same shared
-' resolution as Discover (CatalogSourcesTask fetches manifests the registry has
-' none for; a query arriving before sources land is held as m.pendingQuery and
-' run when they do). One SearchLoaderTask per add-on runs off the render thread,
-' carrying that add-on's catalogs, and lands a { sections } batch the screen fans
-' into rows by catalog key — so results appear as each add-on answers, in the
-' same order the catalogs were discovered. OK on a result pushes DetailsScreen
-' with the meta's own add-on address. The * (options) key reopens the keyboard.
+' SearchScreen — inline keyboard and live results from installed search providers.
+' A 600ms debounce avoids a request per keystroke; each edit invalidates the
+' previous generation. Two providers run at a time and results never steal
+' keyboard focus. Source discovery still happens off the render thread.
 
 sub init()
     m.status = m.top.FindNode("searchStatus")
@@ -37,6 +26,14 @@ sub init()
     m.searchFailed = false
     m.rows = []
     m.searchTasks = invalid
+    m.searchQueue = []
+    m.searchGeneration = 0
+    m.keyboard = m.top.FindNode("liveKeyboard")
+    m.resultsButton = m.top.FindNode("showResults")
+    m.debounce = m.top.FindNode("searchDebounce")
+    m.keyboard.ObserveField("text", "onQueryChanged")
+    m.resultsButton.ObserveField("buttonSelected", "onShowResults")
+    m.debounce.ObserveField("fire", "onSearchDebounce")
 end sub
 
 function OnEnter(params as object) as void
@@ -44,7 +41,8 @@ function OnEnter(params as object) as void
     ' the English default; the table decides what is shown).
     RefreshTexts()
     m.top.FindNode("searchTitle").text = Lang("search", "title")
-    m.top.FindNode("searchSub").text = Lang("search", "subtitle")
+    m.top.FindNode("searchSub").text = Lang("search", "liveHint")
+    m.resultsButton.text = Lang("search", "showResults")
     ' The add-on set can move while Search is off-screen (install/uninstall,
     ' session swap). Re-derive when it did, so the rows never describe a
     ' registry that no longer exists.
@@ -69,6 +67,7 @@ function OnEnter(params as object) as void
 end function
 
 function OnExit() as void
+    m.debounce.control = "stop"
     ' Any query held while sources were still resolving is dropped with the
     ' exit — a later re-entry shows a fresh prompt, it must not replay it.
     m.pendingQuery = ""
@@ -77,10 +76,15 @@ function OnExit() as void
 end function
 
 function OnBackPressed() as boolean
+    if m.results.HasFocus() or m.resultsButton.HasFocus()
+        m.keyboard.SetFocus(true)
+        return true
+    end if
     return false
 end function
 
 sub BlurFocus()
+    m.debounce.control = "stop"
 end sub
 
 ' --- sources (which add-ons serve which catalogs) ---------------------------
@@ -219,26 +223,36 @@ end sub
 ' The query prompt. Starts empty, so each search is a fresh prompt rather than an
 ' edit of the last one.
 sub ShowSearchDialog()
-    dialog = CreateObject("roSGNode", "StandardKeyboardDialog")
-    ' Palette and the array-shaped message are the two things that differ from
-    ' the legacy node. See the same block in SettingsScreen for why each one
-    ' fails quietly rather than loudly.
-    dialog.title = Lang("search", "dialogTitle")
-    dialog.message = [Lang("search", "dialogHelp")]
-    ' Starts empty. Each search is a fresh prompt rather than an edit of the last
-    ' one, so there is no stale query sitting in the box inviting a re-run of
-    ' what was searched before. m.lastQuery is still recorded below and is what
-    ' the "no results" message names.
-    dialog.text = ""
-    dialog.buttons = [Lang("search", "searchButton"), Lang("common", "cancel")]
-    dialog.observeField("buttonSelected", "onSearchChoice")
-    ' Before the dialog is shown, and that ordering is load bearing. The edit
-    ' box is built as soon as the node is created, so this is the earliest the
-    ' voice setting can land and the dictation UI is not listening yet. It was
-    ' an observer firing at registration that got there before; a direct call at
-    ' this point in the sequence is the same moment without the extra field.
-    ApplySearchKeyboard(dialog)
-    m.top.getScene().dialog = dialog
+    ApplySearchKeyboard(m.keyboard)
+    m.keyboard.SetFocus(true)
+    if m.keyboard.text.Trim().Len() < 2 then m.status.text = Lang("search", "minChars")
+end sub
+
+' Invalidate the previous batch immediately, not when the next timer fires.
+' This prevents a slow provider from painting results for a previous prefix.
+sub onQueryChanged()
+    m.debounce.control = "stop"
+    CancelSearch()
+    m.pendingQuery = ""
+    m.rows = []
+    ClearResults()
+    query = m.keyboard.text.Trim()
+    if query.Len() < 2
+        m.status.text = Lang("search", "minChars")
+        return
+    end if
+    m.status.text = Lang("search", "searching")
+    m.debounce.control = "start"
+end sub
+
+sub onSearchDebounce()
+    if not m.top.screenActive then return
+    query = m.keyboard.text.Trim()
+    if query.Len() >= 2 then RunSearch(query)
+end sub
+
+sub onShowResults()
+    if m.rows.Count() > 0 then m.results.SetFocus(true)
 end sub
 
 ' Configures the dialog's internal VoiceTextEditBox, which StandardKeyboardDialog
@@ -266,23 +280,6 @@ sub ApplySearchKeyboard(dialog as object) as void
     ' and the left arrow no-ops by definition while typing still appends, which
     ' from the outside is indistinguishable from a dead keyboard.
     editor.cursorPosition = Len(dialog.text)
-end sub
-
-sub onSearchChoice()
-    dialog = m.top.getScene().dialog
-    if dialog <> invalid
-        index = dialog.buttonSelected
-        query = dialog.text
-        ' StandardDialog's own dismissal, and the one the exit confirm already
-        ' uses: setting close makes the scene drop the node from the dialog slot
-        ' by itself. Both values are read above before anything is torn down.
-        dialog.close = true
-        if index = 0
-            RunSearch(query.Trim())
-        else if m.rows.Count() > 0
-            m.results.SetFocus(true)
-        end if
-    end if
 end sub
 
 ' Kick the query off the render thread against every search-capable catalog
@@ -333,7 +330,6 @@ sub RunSearch(query as string)
     ClearResults()
 
     LaunchSearchTasks()
-    m.results.SetFocus(true)
 end sub
 
 ' The ordered list of searchable catalogs across all sources: one entry per
@@ -415,15 +411,33 @@ sub LaunchSearchTasks()
         })
     end for
 
+    m.searchQueue = []
     for each addonKey in order
+        m.searchQueue.Push({ key: addonKey, address: byAddon[addonKey].address, cats: byAddon[addonKey].cats })
+    end for
+    PumpSearchTasks()
+end sub
+
+' At most two providers per generation; stale generations never enter the grid.
+sub PumpSearchTasks()
+    if m.searchTasks = invalid then return
+    active = 0
+    for each key in m.searchTasks
+        if m.searchTasks[key] <> invalid then active = active + 1
+    end for
+    while active < 2 and m.searchQueue.Count() > 0
+        entry = m.searchQueue.Shift()
+        addonKey = entry.key
         task = AsyncTask_Launch(m.top, "SearchLoaderTask", "onSearchLoaded", {
-            addonAddress: byAddon[addonKey].address
+            addonAddress: entry.address
             addonKey: addonKey
-            catalogs: byAddon[addonKey].cats
+            catalogs: entry.cats
             query: m.lastQuery
+            generation: m.searchGeneration
         }, "searchLoader" + addonKey)
         m.searchTasks[addonKey] = task
-    end for
+        active = active + 1
+    end while
 end sub
 
 ' One add-on's search landed (or failed). The task reports its sections keyed by
@@ -436,6 +450,7 @@ sub onSearchLoaded(event as object)
     if m.searchTasks = invalid then return
     task = event.GetRoSGNode()
     if task = invalid then return
+    if task.generation <> m.searchGeneration then return
     addonKey = task.addonKey
     if addonKey = invalid or addonKey = "" then return
     slot = m.searchTasks[addonKey]
@@ -459,6 +474,7 @@ sub onSearchLoaded(event as object)
     end if
 
     RebuildRows()
+    PumpSearchTasks()
     UpdateSearchStatus()
 end sub
 
@@ -524,7 +540,7 @@ end sub
 ' or says there were no matches.
 sub UpdateSearchStatus()
     if m.searchTasks = invalid then return
-    pending = 0
+    pending = m.searchQueue.Count()
     for each key in m.searchTasks
         if m.searchTasks[key] <> invalid then pending = pending + 1
     end for
@@ -540,6 +556,8 @@ sub UpdateSearchStatus()
 end sub
 
 sub CancelSearch()
+    m.searchGeneration = m.searchGeneration + 1
+    m.searchQueue = []
     if m.searchTasks <> invalid
         for each key in m.searchTasks
             task = m.searchTasks[key]
@@ -574,7 +592,19 @@ end sub
 ' falls through to the stack (Back pops, arrows move inside the results list).
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
-    if key = "options"
+    if key = "down" and m.keyboard.IsInFocusChain()
+        m.resultsButton.SetFocus(true)
+        return true
+    else if key = "up" and m.resultsButton.HasFocus()
+        m.keyboard.SetFocus(true)
+        return true
+    else if key = "right" and m.resultsButton.HasFocus()
+        onShowResults()
+        return true
+    else if key = "left" and m.results.HasFocus()
+        m.keyboard.SetFocus(true)
+        return true
+    else if key = "options" and not m.keyboard.IsInFocusChain()
         ShowSearchDialog()
         return true
     end if

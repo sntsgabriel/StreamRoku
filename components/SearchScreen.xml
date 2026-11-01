@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="SearchScreen" extends="Screen">
-    <!-- Search: every installed add-on's search-capable catalogs. A
-         KeyboardDialog prompt on entry, then results as poster rows, one per
-         search-capable catalog (Stremio-style). OK on a result publishes a
-         pushRequest the Scene routes to Details. The * (options) key reopens
-         the keyboard prefilled with the last query. -->
+    <!-- Inline keyboard keeps live results visible while entering a title. -->
     <interface>
         <!-- The one action Search reports upward: a push request. -->
         <field id="pushRequest" type="assocarray" alwaysNotify="true" />
@@ -45,14 +41,18 @@
             height="40"
             font="font:SmallSystemFont" />
 
+        <DynamicKeyboard id="liveKeyboard" translation="[80, 245]" scale="[0.7, 0.7]" domain="generic" />
+        <Button id="showResults" translation="[80, 880]" minWidth="480" maxWidth="700" />
+        <Timer id="searchDebounce" duration="0.6" repeat="false" />
+
         <!-- Results grid: poster rows, one per catalog that returned results.
              numRows is set from m.rows; a catalog with no matches gets no row,
              so the grid can start empty and fill in as add-ons answer. -->
         <RowList
             id="searchResults"
-            translation="[150, 230]"
+            translation="[900, 245]"
             numRows="2"
-            itemSize="[1780, 405]"
+            itemSize="[920, 405]"
             itemSpacing="[0, 66]"
             rowItemSize="[[270, 405]]"
             rowItemSpacing="[[18, 0]]"

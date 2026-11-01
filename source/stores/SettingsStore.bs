@@ -31,7 +31,7 @@ class SettingsStore
     sub new(registry = invalid as dynamic)
         m.registry = registry
         m.serverAddress = ""
-        m.language = "en"
+        m.language = "pt-BR"
         m.audioPassthrough = false
         m.audioTransmux = false
         m.saveRefused = false

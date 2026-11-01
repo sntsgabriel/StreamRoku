@@ -25,16 +25,17 @@
                 keyValue="[[1.0, 1.0], [1.35, 1.35]]" />
         </Animation>
 
-        <Rectangle id="railBorder" width="80" height="80">
+        <Rectangle id="railBorder" width="278" height="88">
             <Poster
                 id="railGlyph"
-                width="60"
-                height="60"
-                loadWidth="60"
-                loadHeight="60"
+                width="42"
+                height="42"
+                loadWidth="42"
+                loadHeight="42"
                 loadDisplayMode="limitSize"
-                scaleRotateCenter="[30, 30]"
-                translation="[10, 10]" />
+                scaleRotateCenter="[21, 21]"
+                translation="[16, 23]" />
+            <Label id="railLabel" translation="[72, 0]" width="202" height="88" vertAlign="center" font="font:SmallBoldSystemFont" />
         </Rectangle>
     </children>
 </component>

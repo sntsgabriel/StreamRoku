@@ -291,7 +291,7 @@ sub ResetProviderNavigation()
         m.activeIndex = -1
         m.streams = []
         EmptyStreamsList()
-        m.streamsPlaceholder.text = Lang("streams", "noStreamAddons")
+        m.streamsPlaceholder.text = Lang("streams", "noStreamAddons") + " " + Lang("streams", "retryHint")
         m.streamsPlaceholder.visible = true
         UpdateHeader()
         return
@@ -378,13 +378,13 @@ sub UpdateStreamsStatus()
         end for
     end if
     if m.pendingCount > 0
-        m.status.text = Fill(Lang("streams", "providersLoading"), { loaded: m.pendingCount.ToStr(), total: m.providersTotal.ToStr() })
+        m.status.text = Fill(Lang("streams", "providersLoading"), { loaded: (m.providersTotal - m.pendingCount).ToStr(), total: m.providersTotal.ToStr() })
     else
         if total = 0
             if m.loadError <> ""
-                m.status.text = Fill(Lang("streams", "couldNotLoad"), { error: m.loadError })
+                m.status.text = Fill(Lang("streams", "couldNotLoad"), { error: m.loadError }) + " " + Lang("streams", "retryHint")
             else
-                m.status.text = Lang("streams", "noStreamsForTitle")
+                m.status.text = Lang("streams", "noStreamsForTitle") + " " + Lang("streams", "retryHint")
             end if
         else
             m.status.text = ""
@@ -731,6 +731,10 @@ end sub
 ' device-dependent — verify on-device.
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
+    if key = "replay" and m.pendingCount = 0 and m.params <> invalid
+        OnEnter(m.params)
+        return true
+    end if
     if m.providers = invalid or m.activeIndex < 0 then return false
     if key = "left"
         if m.activeIndex > 0

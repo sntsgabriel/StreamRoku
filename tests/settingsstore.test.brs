@@ -9,7 +9,7 @@ sub Test_Settings_Defaults()
     settings = SettingsStore(invalid)
 
     Harness_Equal(settings.ServerAddressSet(), false, "no server address by default")
-    Harness_Equal(settings.GetLanguage(), "en", "language defaults to en")
+    Harness_Equal(settings.GetLanguage(), "pt-BR", "new installs default to Brazilian Portuguese")
 end sub
 
 sub Test_Settings_SetServerAddress()

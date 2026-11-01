@@ -29,3 +29,6 @@ repomix-output.xml
 stremio-collection-raw-*.json
 
 reference/
+
+# Local implementation scripts and validation logs
+work/

@@ -54,6 +54,18 @@
 ' request can never land and can never be applied.
 sub init()
     m.video = m.top.FindNode("video")
+    m.captionButton = m.top.FindNode("captionButton")
+    m.captionHint = m.top.FindNode("captionHint")
+    m.captionHint.color = Theme().textPrimary
+    m.captionHintTimer = m.top.FindNode("captionHintTimer")
+    m.captionButton.ObserveField("buttonSelected", "ShowCaptionMenu")
+    m.captionHintTimer.ObserveField("fire", "HideCaptionHint")
+    m.video.ObserveField("captionControlsRequested", "ShowCaptionControls")
+    m.trackPanel = m.top.FindNode("trackPanel")
+    m.trackPanel.ObserveField("choice", "onTrackPanelChoice")
+    m.trackPanel.ObserveField("closeRequested", "onTrackPanelClosed")
+    m.video.ObserveField("availableSubtitleTracks", "RefreshTrackPanel")
+    m.video.ObserveField("availableAudioTracks", "RefreshTrackPanel")
     m.status = m.top.FindNode("playerStatus")
     m.bufferingGroup = m.top.FindNode("bufferingGroup")
     m.logoBack = m.top.FindNode("logoBack")
@@ -127,6 +139,11 @@ function OnEnter(params as object) as void
     RefreshTexts()
     if params = invalid or params.stream = invalid then return
     m.playParams = params
+    m.captionButton.text = Lang("player", "captionButton")
+    m.captionHint.text = Lang("player", "captionHint")
+    m.captionHint.visible = true
+    m.captionButton.visible = true
+    m.captionHintTimer.control = "start"
     m.saved = false
     m.hasPlayed = false
     ' The per-play flags reset at the real per-play boundary. m.playStarted in
@@ -358,6 +375,11 @@ sub onResolveResult()
 
         if result = invalid or not result.ok or result.url = invalid or result.url = ""
             m.status.text = Lang("player", "sourceUnavailable")
+            if m.playParams <> invalid and m.playParams.stream <> invalid
+                if m.playParams.stream.infoHash <> invalid and StringOf(m.playParams.stream.infoHash) <> "" and StringOf(m.playParams.serverAddress) = ""
+                    m.status.text = Lang("player", "missingServer")
+                end if
+            end if
             ' No video follows, so nothing downstream will end the pulse: this
             ' exit ends it.
             StopPreVideoPulse()
@@ -826,7 +848,9 @@ sub onSubtitleResult()
     ' wins the default pick.
     firstTracks = m.subtitleTracks = invalid or m.subtitleTracks.Count() = 0
     if m.subtitleTracks = invalid then m.subtitleTracks = []
+    providerName = SubtitleProviderName(m.subtitleAsked)
     for each track in result.subtitles
+        track.providerName = providerName
         m.subtitleTracks.Push(track)
     end for
     ' The built array is a snapshot of the raw list, so it has to be rebuilt
@@ -1413,6 +1437,17 @@ end sub
 ' stack → stop + save + pop).
 function OnKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
+    if m.captionButton.HasFocus()
+        if key = "back" or key = "up"
+            m.video.SetFocus(true)
+            HideCaptionHint()
+            return true
+        end if
+    end if
+    if key = "down" and m.video <> invalid
+        ShowCaptionControls()
+        return true
+    end if
     if m.video = invalid
         if key = "back" then return false
         return true
@@ -1499,6 +1534,10 @@ sub ResetVideoNode()
     ' it must not also inherit stale text on the way there.
     m.status.text = ""
     if m.video = invalid then return
+    CloseCaptionMenu()
+    m.captionHintTimer.control = "stop"
+    m.captionHint.visible = false
+    m.captionButton.visible = false
     m.video.control = "stop"
     m.video.content = invalid
     ClearSubtitleTrack()
@@ -1619,4 +1658,77 @@ sub PublishWatchState()
     ' it reads.
     m.stores.watch.callFunc("WatchRecord", packet)
     m.top.watchStateUpdate = packet
+end sub
+
+' These controls change only Video's documented live caption selectors.
+' They never rewrite the playing ContentNode or append late subtitle tracks.
+sub ShowCaptionControls()
+    if not m.top.screenActive or m.video = invalid then return
+    m.captionHintTimer.control = "stop"
+    m.captionHint.visible = true
+    m.captionButton.visible = true
+    m.captionButton.SetFocus(true)
+end sub
+
+sub HideCaptionHint()
+    if m.captionButton.HasFocus() then return
+    m.captionHint.visible = false
+    m.captionButton.visible = false
+end sub
+
+sub ShowCaptionMenu()
+    if m.video = invalid then return
+    RefreshTrackPanel()
+    m.trackPanel.callFunc("Open")
+end sub
+
+sub RefreshTrackPanel()
+    if m.video = invalid then return
+    words = {}
+    ' Screen's Lang helper is the authority for the active UI language.
+    keys = ["subtitles", "audio", "languages", "tracks", "details", "close", "off", "on", "hint", "noSubtitles", "noAudio", "unknownFormat", "embedded", "addon", "und", "pt-BR", "pt", "en", "es", "fr", "de", "it", "ja", "ko", "zh", "ru", "ar", "hi", "hr", "nl", "ro", "sl"]
+    for each key in keys
+        words[key] = Lang("tracks", key)
+    end for
+    m.trackPanel.words = words
+    m.trackPanel.subtitleEntries = TrackPanelEntries(m.video.availableSubtitleTracks, m.subtitleTracks, "subtitle", words)
+    m.trackPanel.audioEntries = TrackPanelEntries(m.video.availableAudioTracks, invalid, "audio", words)
+    m.trackPanel.currentSubtitle = TrackText(m.video.subtitleTrack)
+    if TrackText(m.video.currentSubtitleTrack) <> "" then m.trackPanel.currentSubtitle = TrackText(m.video.currentSubtitleTrack)
+    m.trackPanel.currentAudio = TrackText(m.video.audioTrack)
+    if TrackText(m.video.currentAudioTrack) <> "" then m.trackPanel.currentAudio = TrackText(m.video.currentAudioTrack)
+    m.trackPanel.captionsEnabled = m.video.globalCaptionMode <> "Off"
+    if m.trackPanel.visible then m.trackPanel.callFunc("RefreshEntries")
+end sub
+
+sub onTrackPanelChoice()
+    if m.video = invalid then return
+    choice = m.trackPanel.choice
+    if choice = invalid then return
+    if choice.action = "off"
+        SetCaptionMode("off")
+        m.trackPanel.captionsEnabled = false
+    else if choice.action = "on" or choice.action = "track"
+        if choice.track <> "" then SelectSubtitleTrack(choice.track)
+        SetCaptionMode("on")
+        m.trackPanel.captionsEnabled = true
+        if choice.track <> "" then m.trackPanel.currentSubtitle = choice.track
+    else if choice.action = "audio"
+        if choice.track <> "" and m.video.HasField("audioTrack")
+            m.video.audioTrack = choice.track
+            m.trackPanel.currentAudio = choice.track
+        end if
+    end if
+    m.trackPanel.callFunc("RefreshSelection")
+end sub
+
+sub onTrackPanelClosed()
+    CloseCaptionMenu()
+    if m.top.screenActive and m.video <> invalid then m.video.SetFocus(true)
+end sub
+
+sub CloseCaptionMenu()
+    m.trackPanel.callFunc("DismissPanel")
+    m.captionButton.visible = false
+    m.captionHint.visible = false
 end sub

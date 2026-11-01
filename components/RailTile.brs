@@ -1,4 +1,4 @@
-' RailTile — square icon tile for the Home left rail. Same field plumbing as
+' RailTile — icon and translated label for the Home left rail. Same field plumbing as
 ' every tile: RowList feeds seed the ContentNode through itemContent and drive
 ' focus through itemHasFocus / rowHasFocus. The glyph is read from
 ' itemContent.title.
@@ -6,6 +6,7 @@
 sub init()
     m.border = m.top.FindNode("railBorder")
     m.glyph = m.top.FindNode("railGlyph")
+    m.label = m.top.FindNode("railLabel")
     m.zoomAnim = m.top.FindNode("zoomAnim")
 
     m.border.color = Theme().accentClear
@@ -23,13 +24,17 @@ sub UpdateLook()
     t = Theme()
     if m.top.itemHasFocus
         m.zoomAnim.control = "start"
-        m.glyph.blendColor = t.accent
+        m.glyph.blendColor = t.screenBg
+        m.border.color = t.accentFocus
+        m.label.color = t.screenBg
         m.top.opacity = 1.0
     else
         m.zoomAnim.control = "stop"
         m.glyph.scale = [1.0,1.0]
         m.glyph.blendColor = t.textSecondary
-        m.top.opacity = 0.30
+        m.border.color = t.accentClear
+        m.label.color = t.textPrimary
+        m.top.opacity = 1.0
     end if
 end sub
 
@@ -39,6 +44,7 @@ sub onItemContentChanged()
     ' what makes Roku re-request an evicted texture, so guarding it strands the
     ' icon blank on a recycled tile.
     m.glyph.uri = m.top.itemContent.title
+    m.label.text = m.top.itemContent.shortDescriptionLine1
     UpdateLook()
 end sub
 

@@ -25,6 +25,9 @@
 sub init()
     m.catalog = m.top.FindNode("catalog")
     m.catalog.ObserveField("rowItemSelected", "onRowItemSelected")
+    m.catalog.ObserveField("rowItemFocused", "UpdateSelectedTitle")
+    m.selectedTitle = m.top.FindNode("selectedTitle")
+    m.emptyState = m.top.FindNode("emptyState")
     m.rail = m.top.FindNode("rail")
     m.rail.ObserveField("rowItemSelected", "onRailItemSelected")
     m.homeSub = m.top.FindNode("homeSub")
@@ -33,6 +36,9 @@ sub init()
     t = Theme()
     m.top.FindNode("homeTitle").color = t.accent
     m.homeSub.color = t.textSecondary
+    m.selectedTitle.color = t.textPrimary
+    m.emptyState.color = t.textSecondary
+    m.top.FindNode("brand").color = t.accent
     m.top.FindNode("railBg").color = t.railTint
     m.catalog.rowLabelOffset = [0,10]
     m.catalog.focusBitmapBlendColor = t.accentFocus
@@ -47,6 +53,7 @@ sub init()
     m.cwSignature = ""
     m.catalogSignature = ""
     m.railBuilt = false
+    m.railLanguage = ""
 end sub
 
 ' Kick off the catalog walk. The walking happens off the UI thread in a
@@ -160,6 +167,7 @@ sub ApplyCatalogRow(row as object)
     m.catalog.numRows = m.gridRows.Count()
     ApplyCatalogSizes()
     ResyncRowLabels()
+    UpdateCatalogFeedback()
 end sub
 
 ' Rewrite row titles so duplicated catalog names carry their type suffix; only
@@ -182,6 +190,7 @@ end sub
 ' applied are the final row set. Tear the task node down.
 sub FinishCatalogLoad()
     m.catalogRowsBuilt = true
+    UpdateCatalogFeedback()
     if m.catalogTask <> invalid
         task = m.catalogTask
         m.catalogTask = invalid
@@ -211,6 +220,7 @@ sub BuildRows()
     m.catalog.content = content
     if m.gridRows.Count() > 0 then m.catalog.numRows = m.gridRows.Count()
     ApplyCatalogSizes()
+    UpdateCatalogFeedback()
 end sub
 
 ' Rebuild the grid from the current add-on set — called by the Scene after a
@@ -330,6 +340,8 @@ sub PaintTileFields(item as object, meta as object, fallbackGlyph as dynamic)
     name = meta.name
     if name = invalid then name = ""
     item.title = name
+    item.shortDescriptionLine2 = ""
+    if meta.type <> invalid then item.shortDescriptionLine2 = TypeLabel(meta.type)
     poster = meta.poster
     if poster = invalid then poster = ""
     item.hdPosterUrl = poster
@@ -457,6 +469,7 @@ end function
 function TypeLabel(metaType as string) as string
     if metaType = "movie" then return Lang("common", "movies")
     if metaType = "series" then return Lang("common", "series")
+    if metaType = "channel" or metaType = "tv" then return Lang("common", "channels")
     return metaType
 end function
 
@@ -467,7 +480,8 @@ function OnEnter(params as object) as void
     ' before anything saves it.
     RefreshTexts()
     m.homeSub.text = Lang("home", "hint")
-    if not m.railBuilt then BuildRail()
+    m.top.FindNode("homeTitle").text = Lang("home", "title")
+    if not m.railBuilt or m.railLanguage <> TextsLanguage() then BuildRail()
     StartCatalogLoad()
     sig = ContinueWatchingSignature()
     ' The grid is not rebuilt on every visit — that is what m.gridBuilt is
@@ -489,10 +503,11 @@ function OnEnter(params as object) as void
     ' as well means leaving for another screen and coming back repairs a stale
     ' grid, instead of the staleness being permanent until a relaunch.
     EnsureCurrentRows()
+    UpdateCatalogFeedback()
     ' The place the cursor goes is the place it was left: the grid for a trip
     ' into the tiles, the rail — at the icon the user left it on — for a trip
     ' opened from the rail. BlurFocus records which had it.
-    if m.railWasFocus = true
+    if m.railWasFocus = true or m.gridRows.Count() = 0
         m.rail.SetFocus(true)
     else
         m.catalog.SetFocus(true)
@@ -526,12 +541,12 @@ end sub
 ' stack screen.
 sub BuildRail()
     entries = [
-        { glyph: "pkg:/images/search.png", screen: "searchScreen" }
-        { glyph: "pkg:/images/discover.png", screen: "discoverScreen" }
-        { glyph: "pkg:/images/library.png", screen: "libraryScreen" }
-        { glyph: "pkg:/images/puzzle.png", screen: "addonsScreen" }
-        { glyph: "pkg:/images/settings.png", screen: "settingsScreen" }
-        { glyph: "pkg:/images/support.png", screen: "supportDialog", dialog: true }
+        { label: Lang("home", "navSearch"), glyph: "pkg:/images/search.png", screen: "searchScreen" }
+        { label: Lang("home", "navDiscover"), glyph: "pkg:/images/discover.png", screen: "discoverScreen" }
+        { label: Lang("home", "navLibrary"), glyph: "pkg:/images/library.png", screen: "libraryScreen" }
+        { label: Lang("home", "navAddons"), glyph: "pkg:/images/puzzle.png", screen: "addonsScreen" }
+        { label: Lang("home", "navSettings"), glyph: "pkg:/images/settings.png", screen: "settingsScreen" }
+        { label: Lang("home", "navSupport"), glyph: "pkg:/images/support.png", screen: "supportDialog", dialog: true }
     ]
     m.railEntries = entries
     content = CreateObject("roSGNode", "ContentNode")
@@ -539,10 +554,12 @@ sub BuildRail()
         row = content.CreateChild("ContentNode")
         item = row.CreateChild("ContentNode")
         item.title = entry.glyph
+        item.shortDescriptionLine1 = entry.label
     end for
     m.rail.content = content
     m.rail.numRows = entries.Count()
     m.railBuilt = true
+    m.railLanguage = TextsLanguage()
 end sub
 
 ' OK on a rail icon: an action request the Scene routes. Stack screens publish
@@ -574,6 +591,9 @@ function onKeyEvent(key as string, press as boolean) as boolean
         return true
     else if key = "left" and m.catalog.HasFocus()
         m.rail.SetFocus(true)
+        return true
+    else if key = "replay"
+        if m.catalogTask = invalid then RebuildRows()
         return true
     else if key = "options"
         if m.catalog.HasFocus()
@@ -710,4 +730,34 @@ sub ShowHomeBusy(show as boolean)
         if m.homeHint <> invalid and m.homeHint <> "" then m.homeSub.text = m.homeHint
         m.homeHint = ""
     end if
+end sub
+
+' Empty/loading feedback is independent of the selected title and never replaces data.
+sub UpdateCatalogFeedback()
+    if m.emptyState = invalid then return
+    empty = m.gridRows.Count() = 0
+    m.emptyState.visible = empty
+    if empty
+        m.selectedTitle.text = ""
+        if m.catalogRowsBuilt
+            m.emptyState.text = Lang("home", "empty")
+        else
+            m.emptyState.text = Lang("home", "loading")
+        end if
+    else
+        UpdateSelectedTitle()
+    end if
+end sub
+
+sub UpdateSelectedTitle()
+    if m.selectedTitle = invalid or m.catalog.content = invalid then return
+    focusedItem = m.catalog.rowItemFocused
+    if focusedItem = invalid or focusedItem.Count() < 2 then return
+    if focusedItem[0] < 0 or focusedItem[1] < 0 then return
+    row = m.catalog.content.GetChild(focusedItem[0])
+    if row = invalid then return
+    item = row.GetChild(focusedItem[1])
+    if item = invalid then return
+    m.selectedTitle.text = item.title
+    if item.shortDescriptionLine2 <> invalid and item.shortDescriptionLine2 <> "" then m.selectedTitle.text = item.title + " · " + item.shortDescriptionLine2
 end sub

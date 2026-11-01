@@ -120,7 +120,7 @@ end sub
 ' dimming (opacity 0.55) into a fresh row on another screen/media.
 sub UpdateLook()
     t = Theme()
-    if m.top.rowHasFocus then m.top.opacity = 1.0 else m.top.opacity = 0.55
+    if m.top.rowHasFocus then m.top.opacity = 1.0 else m.top.opacity = 0.78
 end sub
 
 sub onItemHasFocusChanged()

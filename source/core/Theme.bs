@@ -2,8 +2,8 @@
 '
 ' Every component that paints custom colors reads them from Theme() instead of
 ' hardcoding hex literals, so the whole look is driven from this one file. The
-' palette is cached on the caller's m (each component keeps its own copy), and
-' the values are byte-identical to the literals they replace.
+' palette is cached on the caller's m (each component keeps its own copy).
+' Secondary text and the navigation rail use higher contrast for TV viewing.
 '
 ' XML cannot call code, so XML color attributes are migrated into each
 ' component's init() and assigned from here. The transparent "0x0" backdrops
@@ -26,16 +26,18 @@ function Theme() as object
             accentWarm: "0xFFCE6BFF"
             accentInfo: "0x5BCBF4FF"
             textPrimary: "0xE9F2ECFF"
-            textSecondary: "0x8FA399FF"
+            textSecondary: "0xB9C9C0FF"
             textWhite: "0xFFFFFFFF"
             danger: "0xC0392BFF"
             screenBg: "0x0A0F0CFF"
             tileFace: "0x0B110DFF"
             tileFaceFocus: "0x18231CFF"
             itemFace: "0x233329FF"
+            mediaPanelBg: "0x201E2CFA"
+            mediaPanelAccent: "0x9470E8FF"
             dropdownBg: "0x101813FF"
             playerBg: "0x000000FF"
-            railTint: "0xFFFFFF06"
+            railTint: "0x122019FF"
             scrim: "0x00000099"
             progressTrack: "0x00000073"
             progressFill: "0x46E0A3FF"

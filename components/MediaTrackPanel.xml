@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MediaTrackPanel" extends="Group">
+    <interface>
+        <field id="subtitleEntries" type="array" />
+        <field id="audioEntries" type="array" />
+        <field id="words" type="assocarray" />
+        <field id="currentSubtitle" type="string" />
+        <field id="currentAudio" type="string" />
+        <field id="captionsEnabled" type="boolean" />
+        <field id="choice" type="assocarray" alwaysNotify="true" />
+        <field id="closeRequested" type="boolean" alwaysNotify="true" />
+        <function name="Open" />
+        <function name="DismissPanel" />
+        <function name="RefreshSelection" />
+        <function name="RefreshEntries" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/components/MediaTrackPanel.brs" />
+    <script type="text/brightscript" uri="pkg:/source/util/TrackPanelModel.brs" />
+    <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
+    <children>
+        <Rectangle id="shade" width="1920" height="1080" />
+        <Group translation="[80, 250]">
+            <Rectangle id="card" width="1760" height="750" />
+            <Label id="title" translation="[50, 28]" width="1300" height="50" font="font:LargeBoldSystemFont" />
+            <Button id="subTab" translation="[50, 100]" minWidth="280" maxWidth="280" />
+            <Button id="audioTab" translation="[350, 100]" minWidth="280" maxWidth="280" />
+            <Button id="close" translation="[1440, 28]" minWidth="270" maxWidth="270" />
+            <Label id="languageHeading" translation="[50, 185]" width="370" height="45" font="font:MediumBoldSystemFont" />
+            <Label id="trackHeading" translation="[470, 185]" width="920" height="45" font="font:MediumBoldSystemFont" />
+            <Label id="detailHeading" translation="[1440, 185]" width="270" height="45" font="font:MediumBoldSystemFont" />
+            <LabelList id="languages" translation="[50, 240]" itemSize="[370, 64]" numRows="6" font="font:SmallSystemFont" focusedFont="font:SmallBoldSystemFont" />
+            <LabelList id="tracks" translation="[470, 240]" itemSize="[920, 64]" numRows="6" font="font:SmallSystemFont" focusedFont="font:SmallBoldSystemFont" />
+            <Label id="details" translation="[1440, 240]" width="270" height="380" wrap="true" font="font:SmallSystemFont" />
+            <Label id="empty" translation="[470, 300]" width="920" height="180" wrap="true" font="font:MediumSystemFont" visible="false" />
+            <Button id="off" translation="[50, 645]" minWidth="320" maxWidth="320" />
+            <Button id="on" translation="[390, 645]" minWidth="320" maxWidth="320" />
+            <Label id="hint" translation="[760, 655]" width="960" height="65" wrap="true" font="font:SmallSystemFont" />
+        </Group>
+    </children>
+</component>

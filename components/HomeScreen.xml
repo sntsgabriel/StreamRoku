@@ -27,32 +27,35 @@
         <Rectangle id="homeBg" width="1920" height="1080" color="0x0" />
         <Label
             id="homeTitle"
-            translation="[150, 48]"
-            width="1760"
-            height="70"
-            text="Rokumio"
+            translation="[340, 36]"
+            width="1520"
+            height="60"
+            text=""
             font="font:LargeBoldSystemFont" />
         <Label
             id="homeSub"
-            translation="[150, 128]"
-            width="1760"
-            height="40"
-            text="Move between rows, OK for details, Back to exit, * Focus nav-rail and back"
+            translation="[340, 98]"
+            width="1520"
+            height="34"
+            text=""
             font="font:SmallSystemFont" />
 
         <!-- Left rail: the vertical icon menu (Search, Discover, Library,
              Add-ons, Settings, Support). A one-column RowList of RailTiles; OK
              on an icon publishes a pushRequest the Scene routes. Focus reaches
              it from the grid via Left/Right. -->
-        <Rectangle id="railBg" width="140" height="1080"/>
+        <Label id="selectedTitle" translation="[340, 140]" width="1520" height="40" font="font:MediumBoldSystemFont" />
+        <Label id="emptyState" translation="[420, 380]" width="1300" height="180" wrap="true" font="font:MediumSystemFont" visible="false" />
+        <Rectangle id="railBg" width="310" height="1080"/>
+        <Label id="brand" translation="[30, 46]" width="270" height="60" text="Rokumio" font="font:LargeBoldSystemFont" />
         <RowList
             id="rail"
-            translation="[0, 380]"
+            translation="[16, 210]"
             numRows="6"
-            itemSize="[140, 80]"
-            itemSpacing="[0, 40]"
-            rowItemSize="[[80, 80]]"
-            focusXOffset="[30]"
+            itemSize="[278, 88]"
+            itemSpacing="[0, 22]"
+            rowItemSize="[[278, 88]]"
+            focusXOffset="[0]"
             rowItemSpacing="[[0, 0]]"
             showRowLabel="[false]"
             drawFocusFeedback="false"
@@ -64,9 +67,9 @@
              item renders as a PosterTile component. Content is set in code. -->
         <RowList
             id="catalog"
-            translation="[150, 210]"
+            translation="[340, 210]"
             numRows="2"
-            itemSize="[1780, 405]"
+            itemSize="[1540, 405]"
             itemSpacing="[0, 66]"
             rowItemSize="[[270, 405]]"
             rowItemSpacing="[[18, 0]]"

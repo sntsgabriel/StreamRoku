@@ -111,7 +111,7 @@ sub init()
     ' languages the text table carries a complete Settings screen for: a code
     ' that would land the row on Lang() fallback keys is not a choice to offer
     ' yet, and more arrive here with their texts.json section.
-    m.languages = ["en", "es"]
+    m.languages = ["pt-BR", "en", "es"]
     m.heartbeatTask = invalid
     ' Component fields outlive OnEnter, so once the diagnostics row is revealed it
     ' stays revealed for the rest of the session instead of vanishing every time
@@ -473,6 +473,7 @@ end function
 function LanguageValue() as string
     if m.stores = invalid then return ""
     language = m.stores.settings.callFunc("SettingsGetLanguage")
+    if language = "pt-BR" then return Lang("common", "langPtBr")
     if language = "es" then return Lang("common", "langEs")
     if language = "en" then return Lang("common", "langEn")
     return language

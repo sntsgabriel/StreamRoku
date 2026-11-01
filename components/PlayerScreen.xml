@@ -31,9 +31,11 @@
     <script type="text/brightscript" uri="pkg:/source/util/Helpers.brs" />
     <script type="text/brightscript" uri="pkg:/source/util/AddonJson.brs" />
 
+    <script type="text/brightscript" uri="pkg:/source/util/TrackPanelModel.brs" />
+
     <children>
         <Rectangle id="playerBg" width="1920" height="1080" />
-        <Video
+        <CaptionVideo
             id="video"
             width="1920"
             height="1080"
@@ -43,7 +45,8 @@
             id="playerStatus"
             translation="[40, 760]"
             width="1840"
-            height="44"
+            height="120"
+            wrap="true"
             font="font:MediumSystemFont"
             horizAlign="center" />
 
@@ -126,6 +129,10 @@
         <!-- Not cosmetic: StartPlayback hands the Video node its content and
              asks it to play from separate ticks, and this is the boundary. See
              StartPlayback for why the same tick is not good enough. -->
+        <Button id="captionButton" translation="[1410, 970]" minWidth="400" maxWidth="460" visible="false" />
+        <Label id="captionHint" translation="[1000, 925]" width="850" height="42" horizAlign="right" font="font:SmallSystemFont" visible="false" />
+        <MediaTrackPanel id="trackPanel" visible="false" />
+        <Timer id="captionHintTimer" duration="6" repeat="false" />
         <Timer id="playKick" duration="0.25" repeat="false" />
     </children>
 </component>

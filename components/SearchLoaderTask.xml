@@ -3,6 +3,7 @@
     <interface>
         <field id="addonAddress" type="string" value="" />
         <field id="addonKey" type="string" value="" />
+        <field id="generation" type="integer" value="0" />
         <field id="query" type="string" value="" />
         <field id="catalogs" type="array" />
         <field id="result" type="assocarray" alwaysNotify="true" />

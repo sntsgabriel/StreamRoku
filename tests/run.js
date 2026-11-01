@@ -4480,6 +4480,7 @@ function checkNoUntranslatedLiterals() {
         for (const lit of stringLiterals(src)) {
             if (ENGLISH_BY_DECISION.includes(lit)) continue;
             if (printed.has(lit) || keyNames.has(lit)) continue;
+            if (file === 'components/SettingsScreen.brs' && lit === 'set') continue; // ServerSettingsTask operation, not September's label.
             if (values.has(lit)) {
                 err(`${file} hard-codes ${JSON.stringify(lit)} — that string is a word of the table, and a copy here is a string the language change cannot reach. Use Lang()`);
                 continue;
@@ -4852,6 +4853,7 @@ const ADDON_PAYLOAD_ROOTS = [
 // point of the check, and it fails both ways the moment a real payload field is
 // listed here by mistake... which is to say: read the reason before adding one.
 const ADDON_TEXT_READ_EXCEPTIONS = {
+    globalCaptionMode: "Roku Video native caption-mode field; never an add-on JSON payload",
     address: 'our own record field — the transport base derived from a URL the app validated, never an add-on manifest value',
     metaId: 'our own library/progress record field (Stremio API + our own writes), not an add-on meta field',
     addonName: 'our own key on the catalog descriptor the app builds; the value is addon.name, which IS in the table'
