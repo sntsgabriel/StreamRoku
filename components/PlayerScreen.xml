@@ -22,6 +22,7 @@
              EnsureSubtitleProviders. -->
         <function name="EnsureSubtitleProviders" />
         <field id="watchStateUpdate" type="assocarray" alwaysNotify="true" />
+        <field id="pushRequest" type="assocarray" alwaysNotify="true" />
     </interface>
 
     <script type="text/brightscript" uri="pkg:/source/stores/SubtitlesStore.bs" />
@@ -131,8 +132,40 @@
              StartPlayback for why the same tick is not good enough. -->
         <Button id="captionButton" translation="[1410, 970]" minWidth="400" maxWidth="460" visible="false" />
         <Label id="captionHint" translation="[1000, 925]" width="850" height="42" horizAlign="right" font="font:SmallSystemFont" visible="false" />
+        <PlayerControls id="playerControls" visible="false" />
         <MediaTrackPanel id="trackPanel" visible="false" />
         <Timer id="captionHintTimer" duration="6" repeat="false" />
         <Timer id="playKick" duration="0.25" repeat="false" />
+
+        <!-- Next Episode overlay and countdown timer -->
+        <Group id="nextEpisodeGroup" visible="false" translation="[460, 320]">
+            <Rectangle id="nextEpisodePlate" width="1000" height="420" color="0x15151FEE" />
+            <Label
+                id="nextEpisodeTitle"
+                translation="[60, 40]"
+                width="880"
+                height="60"
+                font="font:LargeBoldSystemFont"
+                horizAlign="center" />
+            <Label
+                id="nextEpisodeSub"
+                translation="[60, 120]"
+                width="880"
+                height="80"
+                wrap="true"
+                font="font:MediumSystemFont"
+                horizAlign="center" />
+            <Button
+                id="nextEpisodePlayBtn"
+                translation="[160, 240]"
+                minWidth="320"
+                maxWidth="320" />
+            <Button
+                id="nextEpisodeCancelBtn"
+                translation="[520, 240]"
+                minWidth="320"
+                maxWidth="320" />
+        </Group>
+        <Timer id="nextEpisodeTimer" duration="1.0" repeat="true" />
     </children>
 </component>

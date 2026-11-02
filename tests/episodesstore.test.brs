@@ -293,3 +293,43 @@ sub Test_Episodes_NumericMetaFieldsDoNotThrow()
     Harness_Equal(numericProvided.description, "Fetched", "fetched string still fills the gap")
     Harness_Equal(numericProvided.runtime, 121, "provided numeric runtime kept")
 end sub
+
+sub Test_Episodes_NextEpisode()
+    Harness_Suite("EpisodesStore.NextEpisode sequence and boundaries")
+    store = EpisodesStore(ScriptedTransport([]))
+    meta = {
+        id: "tt999"
+        type: "series"
+        videos: [
+            { id: "tt999:1:1", name: "S1E1", season: 1, episode: 1 }
+            { id: "tt999:1:2", name: "S1E2", season: 1, episode: 2 }
+            { id: "tt999:2:1", name: "S2E1", season: 2, episode: 1 }
+            { id: "tt999:0:1", name: "Special", season: 0, episode: 1 }
+        ]
+    }
+
+    ' Same season next episode
+    next1 = store.NextEpisode(meta, 1, 1)
+    Harness_Equal(next1.found, true, "finds next in same season")
+    Harness_Equal(next1.season, 1, "season 1")
+    Harness_Equal(next1.episode, 2, "episode 2")
+    Harness_Equal(next1.isNewSeason, false, "not a new season")
+    Harness_Equal(next1.isSeriesEnd, false, "not series end")
+
+    ' Cross season next episode
+    next2 = store.NextEpisode(meta, 1, 2)
+    Harness_Equal(next2.found, true, "finds next across season boundary")
+    Harness_Equal(next2.season, 2, "season 2")
+    Harness_Equal(next2.episode, 1, "episode 1")
+    Harness_Equal(next2.isNewSeason, true, "marks new season")
+    Harness_Equal(next2.isSeriesEnd, false, "not series end")
+
+    ' End of series
+    next3 = store.NextEpisode(meta, 2, 1)
+    Harness_Equal(next3.found, false, "no next episode after last episode")
+    Harness_Equal(next3.isSeriesEnd, true, "marks series end")
+
+    ' Invalid inputs
+    Harness_Equal(store.NextEpisode(invalid, 1, 1).found, false, "invalid meta handled")
+    Harness_Equal(store.NextEpisode({ type: "movie" }, 1, 1).found, false, "movie handled")
+end sub

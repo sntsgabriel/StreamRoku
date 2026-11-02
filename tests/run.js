@@ -25,6 +25,7 @@ async function writeCombinedScript() {
         'components/NetDiagTask.brs',
         'tests/screenstack.test.brs',
         'tests/transport.test.brs',
+        'tests/responsecache.test.brs',
         'tests/helpers.test.brs',
         'tests/addonjson.test.brs',
         'tests/settingsstore.test.brs',
@@ -61,6 +62,7 @@ async function writeCombinedScript() {
         'tests/cachesize.test.brs',
         'tests/textsstore.test.brs',
         'tests/serversettingsstore.test.brs',
+        'tests/searchandfilter.test.brs',
         'tests/_run.brs'
     ].map(rel => fs.readFileSync(path.join(projectRoot, rel), 'utf8'));
     fs.mkdirSync(path.dirname(combinedPath), { recursive: true });
@@ -71,6 +73,7 @@ const transpiled = [
     path.join(stagingDir, 'source', 'bslib.brs'),
     path.join(stagingDir, 'source', 'core', 'ScreenStack.brs'),
     path.join(stagingDir, 'source', 'stores', 'Transport.brs'),
+    path.join(stagingDir, 'source', 'stores', 'ResponseCacheStore.brs'),
     path.join(stagingDir, 'source', 'stores', 'SettingsStore.brs'),
     path.join(stagingDir, 'source', 'stores', 'AuthStore.brs'),
     path.join(stagingDir, 'source', 'stores', 'AddonsStore.brs'),
@@ -87,12 +90,14 @@ const transpiled = [
     path.join(stagingDir, 'source', 'stores', 'PlaybackStore.brs'),
     path.join(stagingDir, 'source', 'stores', 'SubtitlesStore.brs'),
     path.join(stagingDir, 'source', 'stores', 'ServerSettingsStore.brs'),
+    path.join(stagingDir, 'source', 'stores', 'SearchHistoryStore.brs'),
     path.join(stagingDir, 'source', 'stores', 'WatchedCodec.brs'),
     path.join(stagingDir, 'source', 'util', 'Regex.brs'),
     path.join(stagingDir, 'source', 'util', 'SetupPage.brs'),
     path.join(stagingDir, 'source', 'util', 'CodecProbe.brs'),
     path.join(stagingDir, 'source', 'util', 'TorrentProfile.brs'),
     path.join(stagingDir, 'source', 'util', 'CacheSize.brs'),
+    path.join(stagingDir, 'source', 'util', 'StreamFilter.brs'),
     path.join(stagingDir, 'source', 'util', 'Utilities.brs'),
     path.join(stagingDir, 'source', 'util', 'Helpers.brs'),
     path.join(stagingDir, 'source', 'util', 'AddonJson.brs')
@@ -4853,6 +4858,7 @@ const ADDON_PAYLOAD_ROOTS = [
 // point of the check, and it fails both ways the moment a real payload field is
 // listed here by mistake... which is to say: read the reason before adding one.
 const ADDON_TEXT_READ_EXCEPTIONS = {
+    state: "Roku Video native playback state; never an add-on JSON payload",
     globalCaptionMode: "Roku Video native caption-mode field; never an add-on JSON payload",
     address: 'our own record field — the transport base derived from a URL the app validated, never an add-on manifest value',
     metaId: 'our own library/progress record field (Stremio API + our own writes), not an add-on meta field',

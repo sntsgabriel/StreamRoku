@@ -42,7 +42,10 @@
       "airDateAired": "Aired {date}",
       "airDatePremieres": "Premieres {date}",
       "episodeMarker": "S{season}E{episode}",
-      "langPtBr": "Português (Brasil)"
+      "langPtBr": "Português (Brasil)",
+      "langPt": "Portuguese",
+      "langDefault": "Default",
+      "notSpecified": "Not specified"
     },
     "settings": {
       "title": "Settings",
@@ -102,7 +105,23 @@
       "serverAddressHelp": "e.g. http://192.168.1.5:4141 - leave empty and OK to clear",
       "statusInvalidAddress": "Invalid address - use http://host[:port]",
       "statusServerCleared": "Server address cleared.",
-      "statusServerUpdated": "Server address updated."
+      "statusServerUpdated": "Server address updated.",
+      "sectionPlayback": "Playback",
+      "sectionAccessibility": "Accessibility",
+      "rowPreferredAudio": "Preferred audio language",
+      "rowPreferredSubtitle": "Preferred subtitle language",
+      "rowSubtitlesEnabled": "Subtitles default",
+      "rowAutoplayNext": "Autoplay next episode",
+      "rowLightMode": "Light mode (performance)",
+      "rowLargeText": "Larger text",
+      "rowHighContrastFocus": "High contrast focus",
+      "panelPreferredAudio": "Automatically selects this audio language when a matching track is found in the stream.",
+      "panelPreferredSubtitle": "Automatically selects this subtitle language when a matching track is available.",
+      "panelSubtitlesEnabled": "Determines whether subtitles are enabled by default when playback begins.",
+      "panelAutoplayNext": "Automatically counts down and plays the next episode when the current episode ends.",
+      "panelLightMode": "Reduces animations and poster pre-loading for smoother navigation on slower Roku devices.",
+      "panelLargeText": "Increases the size of menu items and interface text for easier reading from a distance.",
+      "panelHighContrastFocus": "Uses a thicker, more visible border around the focused item on screen."
     },
     "main": {
       "logOutTitle": "Log out?",
@@ -144,7 +163,14 @@
       "navAddons": "Add-ons",
       "navSettings": "Settings",
       "navSupport": "Support",
-      "empty": "No catalogs available. Check your add-ons and connection. Press Replay to try again."
+      "empty": "No catalogs available. Check your add-ons and connection. Press Replay to try again.",
+      "watch": "Watch",
+      "resume": "Resume",
+      "moreInfo": "More info",
+      "guest": "Guest",
+      "navHome": "Home",
+      "navSeries": "Series",
+      "navMovies": "Movies"
     },
     "addons": {
       "title": "Add-ons",
@@ -212,7 +238,11 @@
       "noStreamsForProvider": "No streams found for this provider.",
       "loadingStreams": "Loading streams…",
       "streamFallback": "Stream",
-      "retryHint": "Replay: try again"
+      "retryHint": "Replay: try again",
+      "filtersHideAll": "No streams match the active filter. Press * to clear or change filters.",
+      "clearFilters": "Clear filters",
+      "filterHint": "* Filter streams",
+      "activeFilter": "Filter: {res}"
     },
     "player": {
       "sourceUnavailable": "This source is poorly available or your internet connection is not fast enough.",
@@ -232,7 +262,21 @@
       "captionsOff": "Turn subtitles off",
       "captionsOn": "Turn subtitles on",
       "noCaptions": "No subtitle tracks available yet. Try again after playback starts, or try another source.",
-      "chooseCaptions": "Choose a track to turn subtitles on, or turn them off."
+      "chooseCaptions": "Choose a track to turn subtitles on, or turn them off.",
+      "nextEpisode": "Next episode",
+      "playNext": "Play now",
+      "nextEpisodeCountdown": "Next episode in {seconds}s",
+      "seriesEnd": "End of series",
+      "seriesEndDesc": "You have watched the last available episode.",
+      "back": "Back",
+      "captions": "Audio & subtitles",
+      "restart": "Play from beginning",
+      "resume": "Resume",
+      "pause": "Pause",
+      "controls": "Playback",
+      "paused": "Paused",
+      "controlsHint": "Arrows: browse     OK: select     Back: hide",
+      "pausePrompt": "OK to resume   ·   Arrows to show controls"
     },
     "discover": {
       "title": "Discover",
@@ -261,7 +305,14 @@
       "noResults": "No results for \"{query}\".",
       "liveHint": "Type to search · ↓ View results · Back: keyboard / home",
       "minChars": "Enter at least two characters. Results update as you type.",
-      "showResults": "View results"
+      "showResults": "View results",
+      "recentSearches": "Recent searches",
+      "clearHistory": "Clear search history",
+      "removeSelected": "Remove",
+      "placeholder": "Search",
+      "recommended": "Recommended searches",
+      "retry": "Try again",
+      "searchResults": "Search results"
     },
     "auth": {
       "subtitle": "Browse as a guest, or log in with Stremio to sync your add-ons and library",
@@ -283,16 +334,16 @@
     },
     "tracks": {
       "subtitles": "Subtitles",
-      "audio": "Audio tracks",
+      "audio": "Audio",
       "languages": "Languages",
       "tracks": "Available tracks",
       "details": "Details",
       "close": "Close",
-      "off": "Turn subtitles off",
+      "off": "Off",
       "on": "Turn subtitles on",
-      "hint": "←/→: sections · OK: select · Back: close",
+      "hint": "OK select     Back close",
       "noSubtitles": "No subtitles available. Wait for playback to start or try another source.",
-      "noAudio": "No audio tracks available yet. Wait for playback to start.",
+      "noAudio": "This source uses the default audio.",
       "unknownFormat": "Format not reported",
       "embedded": "In video",
       "addon": "Add-on",
@@ -313,7 +364,14 @@
       "hr": "Croatian",
       "nl": "Dutch",
       "ro": "Romanian",
-      "sl": "Slovenian"
+      "sl": "Slovenian",
+      "alb": "Albanian",
+      "bul": "Bulgarian",
+      "cze": "Czech",
+      "ces": "Czech",
+      "forced": "Forced",
+      "panelTitle": "Audio & subtitles",
+      "tabHint": "Left / right to switch tabs"
     }
   },
   "es": {
@@ -359,7 +417,10 @@
       "airDateAired": "Emitido el {date}",
       "airDatePremieres": "Estreno el {date}",
       "episodeMarker": "T{season}E{episode}",
-      "langPtBr": "Português (Brasil)"
+      "langPtBr": "Português (Brasil)",
+      "langPt": "Portugués",
+      "langDefault": "Predeterminado",
+      "notSpecified": "No especificado"
     },
     "settings": {
       "title": "Ajustes",
@@ -419,7 +480,23 @@
       "serverAddressHelp": "p. ej. http://192.168.1.5:4141 - déjalo vacío y pulsa OK para borrar",
       "statusInvalidAddress": "Dirección no válida - usa http://host[:puerto]",
       "statusServerCleared": "Dirección del servidor borrada.",
-      "statusServerUpdated": "Dirección del servidor actualizada."
+      "statusServerUpdated": "Dirección del servidor actualizada.",
+      "sectionPlayback": "Reproducción",
+      "sectionAccessibility": "Accesibilidad",
+      "rowPreferredAudio": "Idioma de audio preferido",
+      "rowPreferredSubtitle": "Idioma de subtítulos preferido",
+      "rowSubtitlesEnabled": "Subtítulos por defecto",
+      "rowAutoplayNext": "Reproducir siguiente episodio",
+      "rowLightMode": "Modo ligero (rendimiento)",
+      "rowLargeText": "Texto más grande",
+      "rowHighContrastFocus": "Foco de alto contraste",
+      "panelPreferredAudio": "Selecciona automáticamente este idioma de audio cuando encuentra una pista coincidente.",
+      "panelPreferredSubtitle": "Selecciona automáticamente este idioma de subtítulos cuando hay una pista disponible.",
+      "panelSubtitlesEnabled": "Determina si los subtítulos están activados por defecto al iniciar la reproducción.",
+      "panelAutoplayNext": "Cuenta regresiva automática para reproducir el siguiente episodio al terminar el actual.",
+      "panelLightMode": "Reduce animaciones y precarga de pósteres para mayor fluidez en dispositivos Roku más lentos.",
+      "panelLargeText": "Aumenta el tamaño del texto de menús e interfaz para facilitar la lectura a distancia.",
+      "panelHighContrastFocus": "Usa un borde más grueso y visible alrededor del elemento enfocado en pantalla."
     },
     "main": {
       "logOutTitle": "¿Cerrar sesión?",
@@ -461,7 +538,14 @@
       "navAddons": "Complementos",
       "navSettings": "Ajustes",
       "navSupport": "Apoyar",
-      "empty": "No hay catálogos disponibles. Revisa los complementos y la conexión. Pulsa Replay para reintentar."
+      "empty": "No hay catálogos disponibles. Revisa los complementos y la conexión. Pulsa Replay para reintentar.",
+      "watch": "Ver",
+      "resume": "Continuar",
+      "moreInfo": "Más información",
+      "guest": "Invitado",
+      "navHome": "Inicio",
+      "navSeries": "Series",
+      "navMovies": "Películas"
     },
     "addons": {
       "title": "Add-ons",
@@ -529,7 +613,11 @@
       "noStreamsForProvider": "No se encontraron streams para este proveedor.",
       "loadingStreams": "Cargando streams…",
       "streamFallback": "Stream",
-      "retryHint": "Replay: reintentar"
+      "retryHint": "Replay: reintentar",
+      "filtersHideAll": "Ningún stream coincide con el filtro activo. Presiona * para borrar o cambiar filtros.",
+      "clearFilters": "Limpiar filtros",
+      "filterHint": "* Filtrar streams",
+      "activeFilter": "Filtro: {res}"
     },
     "player": {
       "sourceUnavailable": "Esta fuente está poco disponible o tu conexión a internet no es lo bastante rápida.",
@@ -549,7 +637,21 @@
       "captionsOff": "Desactivar subtítulos",
       "captionsOn": "Activar subtítulos",
       "noCaptions": "Aún no hay subtítulos disponibles. Inténtalo cuando empiece el vídeo o prueba otra fuente.",
-      "chooseCaptions": "Elige una pista para activar los subtítulos o desactívalos."
+      "chooseCaptions": "Elige una pista para activar los subtítulos o desactívalos.",
+      "nextEpisode": "Siguiente episodio",
+      "playNext": "Reproducir ahora",
+      "nextEpisodeCountdown": "Siguiente episodio en {seconds}s",
+      "seriesEnd": "Fin de la serie",
+      "seriesEndDesc": "Has visto el último episodio disponible.",
+      "back": "Volver",
+      "captions": "Audio y subtítulos",
+      "restart": "Ver desde el inicio",
+      "resume": "Continuar",
+      "pause": "Pausar",
+      "controls": "Reproducción",
+      "paused": "En pausa",
+      "controlsHint": "Flechas: navegar     OK: elegir     Atrás: ocultar",
+      "pausePrompt": "OK para continuar   ·   Flechas para ver los controles"
     },
     "discover": {
       "title": "Descubrir",
@@ -578,7 +680,14 @@
       "noResults": "Sin resultados para «{query}».",
       "liveHint": "Escribe para buscar · ↓ Ver resultados · Atrás: teclado / inicio",
       "minChars": "Escribe al menos dos caracteres. Los resultados se actualizan al escribir.",
-      "showResults": "Ver resultados"
+      "showResults": "Ver resultados",
+      "recentSearches": "Búsquedas recientes",
+      "clearHistory": "Borrar historial",
+      "removeSelected": "Eliminar",
+      "placeholder": "Buscar",
+      "recommended": "Búsquedas recomendadas",
+      "retry": "Reintentar",
+      "searchResults": "Resultados de búsqueda"
     },
     "auth": {
       "subtitle": "Explora como invitado, o inicia sesión con Stremio para sincronizar tus add-ons y tu biblioteca",
@@ -600,16 +709,16 @@
     },
     "tracks": {
       "subtitles": "Subtítulos",
-      "audio": "Pistas de audio",
+      "audio": "Idioma",
       "languages": "Idiomas",
       "tracks": "Pistas disponibles",
       "details": "Detalles",
       "close": "Cerrar",
-      "off": "Desactivar subtítulos",
+      "off": "Desactivados",
       "on": "Activar subtítulos",
-      "hint": "←/→: secciones · OK: elegir · Atrás: cerrar",
+      "hint": "OK elegir     Atrás cerrar",
       "noSubtitles": "No hay subtítulos disponibles. Espera al inicio del vídeo o prueba otra fuente.",
-      "noAudio": "Todavía no hay pistas de audio. Espera al inicio del vídeo.",
+      "noAudio": "Esta fuente usa el audio predeterminado.",
       "unknownFormat": "Formato no indicado",
       "embedded": "En el vídeo",
       "addon": "Complemento",
@@ -630,7 +739,14 @@
       "hr": "Croata",
       "nl": "Neerlandés",
       "ro": "Rumano",
-      "sl": "Esloveno"
+      "sl": "Esloveno",
+      "alb": "Albanés",
+      "bul": "Búlgaro",
+      "cze": "Checo",
+      "ces": "Checo",
+      "forced": "Forzados",
+      "panelTitle": "Audio y subtítulos",
+      "tabHint": "Izquierda / derecha para cambiar pestaña"
     }
   },
   "pt-BR": {
@@ -676,7 +792,10 @@
       "airDateAired": "Exibido em {date}",
       "airDatePremieres": "Estreia em {date}",
       "episodeMarker": "T{season}E{episode}",
-      "langPtBr": "Português (Brasil)"
+      "langPtBr": "Português (Brasil)",
+      "langPt": "Português",
+      "langDefault": "Padrão",
+      "notSpecified": "Não informado"
     },
     "settings": {
       "title": "Configurações",
@@ -736,7 +855,23 @@
       "serverAddressHelp": "Ex.: http://192.168.1.5:4141 — deixe vazio e pressione OK para limpar",
       "statusInvalidAddress": "Endereço inválido. Use http://endereço[:porta]",
       "statusServerCleared": "Endereço do servidor removido.",
-      "statusServerUpdated": "Endereço do servidor atualizado."
+      "statusServerUpdated": "Endereço do servidor atualizado.",
+      "sectionPlayback": "Reprodução",
+      "sectionAccessibility": "Acessibilidade",
+      "rowPreferredAudio": "Idioma de áudio preferido",
+      "rowPreferredSubtitle": "Idioma de legendas preferido",
+      "rowSubtitlesEnabled": "Legendas por padrão",
+      "rowAutoplayNext": "Reproduzir próximo episódio",
+      "rowLightMode": "Modo leve (desempenho)",
+      "rowLargeText": "Textos maiores",
+      "rowHighContrastFocus": "Foco de alto contraste",
+      "panelPreferredAudio": "Seleciona automaticamente este idioma de áudio quando houver uma faixa compatível no stream.",
+      "panelPreferredSubtitle": "Seleciona automaticamente este idioma de legendas quando houver uma faixa compatível disponível.",
+      "panelSubtitlesEnabled": "Determina se as legendas ficam ativadas por padrão ao iniciar a reprodução.",
+      "panelAutoplayNext": "Faz uma contagem regressiva e reproduz o próximo episódio automaticamente ao terminar o atual.",
+      "panelLightMode": "Reduz animações e pré-carregamento de cartazes para navegação mais fluida em aparelhos Roku mais lentos.",
+      "panelLargeText": "Aumenta o tamanho dos textos dos menus e da interface para facilitar a leitura à distância.",
+      "panelHighContrastFocus": "Usa uma borda mais espessa e visível ao redor do item em foco na tela."
     },
     "main": {
       "logOutTitle": "Sair da conta?",
@@ -778,7 +913,14 @@
       "navAddons": "Complementos",
       "navSettings": "Configurações",
       "navSupport": "Apoiar",
-      "empty": "Nenhum catálogo disponível. Verifique os complementos e a conexão. Pressione Replay para tentar novamente."
+      "empty": "Nenhum catálogo disponível. Verifique os complementos e a conexão. Pressione Replay para tentar novamente.",
+      "watch": "Assistir",
+      "resume": "Continuar",
+      "moreInfo": "Mais informações",
+      "guest": "Convidado",
+      "navHome": "Início",
+      "navSeries": "Séries",
+      "navMovies": "Filmes"
     },
     "addons": {
       "title": "Complementos",
@@ -846,7 +988,11 @@
       "noStreamsForProvider": "Este provedor não encontrou fontes para o título.",
       "loadingStreams": "Buscando fontes…",
       "streamFallback": "Fonte",
-      "retryHint": "Replay: tentar novamente"
+      "retryHint": "Replay: tentar novamente",
+      "filtersHideAll": "Nenhuma fonte corresponde ao filtro ativo. Pressione * para limpar ou alterar filtros.",
+      "clearFilters": "Limpar filtros",
+      "filterHint": "* Filtrar fontes",
+      "activeFilter": "Filtro: {res}"
     },
     "player": {
       "sourceUnavailable": "A fonte tem pouca disponibilidade ou a conexão não está rápida o suficiente. Volte e tente outra fonte.",
@@ -866,7 +1012,21 @@
       "captionsOff": "Desligar legendas",
       "captionsOn": "Ligar legendas",
       "noCaptions": "Ainda não há legendas disponíveis. Tente após o vídeo começar ou escolha outra fonte.",
-      "chooseCaptions": "Escolha uma faixa para ligar as legendas ou desative a exibição."
+      "chooseCaptions": "Escolha uma faixa para ligar as legendas ou desative a exibição.",
+      "nextEpisode": "Próximo episódio",
+      "playNext": "Assistir agora",
+      "nextEpisodeCountdown": "Próximo episódio em {seconds}s",
+      "seriesEnd": "Fim da série",
+      "seriesEndDesc": "Você assistiu ao último episódio disponível.",
+      "back": "Voltar",
+      "captions": "Áudio e legendas",
+      "restart": "Assistir do início",
+      "resume": "Continuar",
+      "pause": "Pausar",
+      "controls": "Reprodução",
+      "paused": "Pausado",
+      "controlsHint": "Setas: navegar     OK: selecionar     Voltar: ocultar",
+      "pausePrompt": "OK para continuar   ·   Setas para ver os controles"
     },
     "discover": {
       "title": "Explorar",
@@ -895,7 +1055,14 @@
       "noResults": "Nenhum resultado para “{query}”.",
       "liveHint": "Digite para buscar · ↓ Ver resultados · Voltar: teclado / início",
       "minChars": "Digite pelo menos duas letras. Os resultados aparecem enquanto você escreve.",
-      "showResults": "Ver resultados"
+      "showResults": "Ver resultados",
+      "recentSearches": "Pesquisas recentes",
+      "clearHistory": "Limpar histórico",
+      "removeSelected": "Remover",
+      "placeholder": "Pesquisar",
+      "recommended": "De pesquisas recomendadas",
+      "retry": "Tentar novamente",
+      "searchResults": "Resultados da busca"
     },
     "auth": {
       "subtitle": "Explore como visitante ou entre com Stremio para sincronizar complementos e biblioteca",
@@ -917,16 +1084,16 @@
     },
     "tracks": {
       "subtitles": "Legendas",
-      "audio": "Faixas de áudio",
+      "audio": "Idioma",
       "languages": "Idiomas",
       "tracks": "Faixas disponíveis",
       "details": "Detalhes",
       "close": "Fechar",
-      "off": "Desligar legendas",
+      "off": "Desativadas",
       "on": "Ligar legendas",
-      "hint": "←/→: setores · OK: selecionar · Voltar: fechar",
+      "hint": "OK selecionar     Voltar fechar",
       "noSubtitles": "Nenhuma legenda disponível. Aguarde o vídeo iniciar ou tente outra fonte.",
-      "noAudio": "Nenhuma faixa de áudio disponível no player. Aguarde o vídeo iniciar.",
+      "noAudio": "Esta fonte usa o áudio padrão.",
       "unknownFormat": "Formato não informado",
       "embedded": "No vídeo",
       "addon": "Complemento",
@@ -947,7 +1114,14 @@
       "hr": "Croata",
       "nl": "Holandês",
       "ro": "Romeno",
-      "sl": "Esloveno"
+      "sl": "Esloveno",
+      "alb": "Albanês",
+      "bul": "Búlgaro",
+      "cze": "Tcheco",
+      "ces": "Tcheco",
+      "forced": "Forçadas",
+      "panelTitle": "Áudio e legendas",
+      "tabHint": "Esquerda / direita para trocar de aba"
     }
   }
 }

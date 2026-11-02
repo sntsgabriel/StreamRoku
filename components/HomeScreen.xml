@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="HomeScreen" extends="Screen">
     <interface>
-        <!-- The one action Home reports upward: a push request. The Scene
-             observes it and calls ScreenStack.push with a target + params. -->
+        <!-- The one action Home reports upward: a push request. -->
         <field id="pushRequest" type="assocarray" alwaysNotify="true" />
 
-        <!-- Screen contract: called by ScreenStack for show/hide/focus/back.
-             callFunc only runs for functions declared in the interface. Stores
-             are class instances and cannot cross components through a field,
-             so they arrive via callFunc. -->
+        <!-- Screen contract: called by ScreenStack for show/hide/focus/back. -->
         <function name="OnEnter" />
         <function name="OnExit" />
         <function name="OnBackPressed" />
@@ -24,58 +20,152 @@
     <script type="text/brightscript" uri="pkg:/source/util/Helpers.brs" />
 
     <children>
-        <Rectangle id="homeBg" width="1920" height="1080" color="0x0" />
-        <Label
-            id="homeTitle"
-            translation="[340, 36]"
-            width="1520"
-            height="60"
-            text=""
-            font="font:LargeBoldSystemFont" />
-        <Label
-            id="homeSub"
-            translation="[340, 98]"
-            width="1520"
-            height="34"
-            text=""
-            font="font:SmallSystemFont" />
+        <Rectangle id="homeBg" width="1920" height="1080" color="0x0E1110FF" />
 
-        <!-- Left rail: the vertical icon menu (Search, Discover, Library,
-             Add-ons, Settings, Support). A one-column RowList of RailTiles; OK
-             on an icon publishes a pushRequest the Scene routes. Focus reaches
-             it from the grid via Left/Right. -->
-        <Label id="selectedTitle" translation="[340, 140]" width="1520" height="40" font="font:MediumBoldSystemFont" />
-        <Label id="emptyState" translation="[420, 380]" width="1300" height="180" wrap="true" font="font:MediumSystemFont" visible="false" />
-        <Rectangle id="railBg" width="310" height="1080"/>
-        <Label id="brand" translation="[30, 46]" width="270" height="60" text="Rokumio" font="font:LargeBoldSystemFont" />
-        <RowList
-            id="rail"
-            translation="[16, 210]"
-            numRows="6"
-            itemSize="[278, 88]"
-            itemSpacing="[0, 22]"
-            rowItemSize="[[278, 88]]"
-            focusXOffset="[0]"
-            rowItemSpacing="[[0, 0]]"
-            showRowLabel="[false]"
-            drawFocusFeedback="false"
-            itemComponentName="RailTile"
-            vertFocusAnimationStyle="floatingFocus"/>
+        <!-- Immersive Hero Background Artwork (full screen 1920x1080 with crossfade and dark gradient) -->
+        <Group id="heroArtworkGroup">
+            <Poster
+                id="heroBg"
+                width="1920"
+                height="1080"
+                loadDisplayMode="scaleToZoom"
+                opacity="1.0" />
+            <Poster
+                id="heroBgNext"
+                width="1920"
+                height="1080"
+                loadDisplayMode="scaleToZoom"
+                opacity="0.0" />
+            <Poster
+                id="heroGradient"
+                width="1920"
+                height="1080"
+                uri="pkg:/images/hero-gradient.png"
+                loadDisplayMode="scaleToFill" />
+        </Group>
 
-        <!-- Poster rows: a single RowList owns the whole grid physics (vertical
-             row scrolling/clipping, horizontal per-row tiles, row labels). Each
-             item renders as a PosterTile component. Content is set in code. -->
-        <RowList
-            id="catalog"
-            translation="[340, 210]"
-            numRows="2"
-            itemSize="[1540, 405]"
-            itemSpacing="[0, 66]"
-            rowItemSize="[[270, 405]]"
-            rowItemSpacing="[[18, 0]]"
-            showRowLabel="[true]"
-            rowLabelFont="font:MediumBoldSystemFont"
-            drawFocusFeedback="true"
-            itemComponentName="PosterTile" />
+        <Animation id="heroCrossfadeAnim" duration="0.3" repeat="false">
+            <FloatFieldInterpolator id="heroCrossfadeInterp" fieldToInterp="heroBgNext.opacity" key="[0, 1]" keyValue="[0.0, 1.0]" />
+        </Animation>
+        <Timer id="heroDebounceTimer" duration="0.25" repeat="false" />
+
+        <!-- Catalog and Hero Info Area: repositions smoothly when the navigation menu expands -->
+        <Group id="catalogArea" translation="[136, 0]">
+            <!-- Hero details overlay (top left above catalog) -->
+            <Group id="heroInfoGroup" translation="[0, 48]">
+                <Poster
+                    id="heroLogo"
+                    width="420"
+                    height="110"
+                    loadDisplayMode="scaleToFit"
+                    visible="false" />
+                <Label
+                    id="heroTitle"
+                    translation="[0, 0]"
+                    width="1000"
+                    height="64"
+                    font="font:LargeBoldSystemFont" />
+                <Label
+                    id="heroMeta"
+                    translation="[0, 70]"
+                    width="1000"
+                    height="32"
+                    font="font:SmallBoldSystemFont" />
+                <Label
+                    id="heroDesc"
+                    translation="[0, 108]"
+                    width="920"
+                    height="76"
+                    maxLines="3"
+                    wrap="true"
+                    font="font:SmallSystemFont" />
+                <Group id="heroButtonsGroup" translation="[0, 196]">
+                    <Button id="btnPlay" minWidth="200" maxWidth="260" text="Assistir" />
+                    <Button id="btnDetails" translation="[220, 0]" minWidth="220" maxWidth="300" text="Mais informações" />
+                </Group>
+            </Group>
+
+            <!-- Compatibility labels for headers and empty states -->
+            <Label
+                id="homeTitle"
+                translation="[0, 32]"
+                width="1600"
+                height="32"
+                text=""
+                visible="false"
+                font="font:SmallBoldSystemFont" />
+            <Label
+                id="selectedTitle"
+                translation="[0, 68]"
+                width="1600"
+                height="56"
+                visible="false"
+                font="font:LargeBoldSystemFont" />
+            <Label
+                id="homeSub"
+                translation="[0, 126]"
+                width="1600"
+                height="32"
+                text=""
+                font="font:SmallSystemFont" />
+
+            <Label
+                id="emptyState"
+                translation="[40, 320]"
+                width="1200"
+                height="180"
+                wrap="true"
+                font="font:MediumSystemFont"
+                visible="false" />
+
+            <!-- Poster rows: single RowList owning grid physics -->
+            <RowList
+                id="catalog"
+                translation="[0, 360]"
+                numRows="2"
+                itemSize="[1784, 405]"
+                itemSpacing="[0, 66]"
+                rowItemSize="[[270, 405]]"
+                rowItemSpacing="[[18, 0]]"
+                showRowLabel="[true]"
+                rowLabelFont="font:MediumBoldSystemFont"
+                drawFocusFeedback="true"
+                drawFocusFeedbackOnMakeFocused="true"
+                itemComponentName="PosterTile" />
+        </Group>
+
+        <!-- Left rail: the vertical icon menu (Netflix style). Overlays the left edge
+             and expands smoothly without cutting catalog text. -->
+        <Group id="railClip" clippingRect="[0, 0, 96, 1080]">
+            <Rectangle id="railBg" width="96" height="1080" />
+
+            <!-- User Profile Header (Netflix style) -->
+            <Group id="profileGroup" translation="[24, 32]">
+                <Rectangle id="avatarBg" width="48" height="48" color="0x2BD675FF" />
+                <Label id="avatarInitial" translation="[14, 8]" width="24" height="32" text="U" font="font:MediumBoldSystemFont" color="0x0E1110FF" />
+                <Label id="profileName" translation="[64, 4]" width="260" height="24" text="User 0" opacity="0" font="font:SmallBoldSystemFont" />
+                <Label id="profileSub" translation="[64, 26]" width="260" height="20" text="Rokumio" opacity="0" font="font:SmallSystemFont" />
+            </Group>
+
+            <Label id="brand" translation="[30, 96]" width="300" height="50" text="Rokumio" opacity="0" font="font:LargeBoldSystemFont" />
+            <Label id="compactBrand" translation="[30, 96]" width="60" height="50" text="R" font="font:LargeBoldSystemFont" />
+
+            <RowList
+                id="rail"
+                translation="[16, 160]"
+                numRows="8"
+                itemSize="[332, 88]"
+                itemSpacing="[0, 12]"
+                rowItemSize="[[332, 88]]"
+                focusXOffset="[0]"
+                rowItemSpacing="[[0, 0]]"
+                showRowLabel="[false]"
+                drawFocusFeedback="false"
+                itemComponentName="RailTile"
+                vertFocusAnimationStyle="floatingFocus" />
+        </Group>
+        <Animation id="railAnimation" duration="0.22" repeat="false">
+            <FloatFieldInterpolator id="railWidthInterpolator" fieldToInterp="railBg.width" key="[0, 1]" keyValue="[96, 360]" />
+        </Animation>
     </children>
 </component>

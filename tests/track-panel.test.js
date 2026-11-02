@@ -39,11 +39,26 @@ Harness_Equal(audio[0].id, "a/pt", "audio uses Track instead of subtitle TrackNa
 Harness_Equal(audio[0].format, "AAC", "audio format is displayed when reported")
 Harness_Equal(audio[1].format, "Desconhecido", "missing audio format is not guessed")
 Harness_Equal(TrackPanelGroups(audio).Count(), 2, "audio languages have separate groups")
+words.off="Desativadas"
+rows=TrackPanelRows(entries,true,words)
+Harness_Equal(rows.Count(),5,"flat list includes Off and every native track")
+Harness_Equal(rows[0].action,"off","Off is first and directly selectable")
+Harness_Equal(rows[1].label,"Português (Brasil)","one track has only a readable language label")
+Harness_Equal(rows[1].id,entries[1].id,"simplification keeps opaque selectors unchanged")
+Harness_Equal(rows[3].label,"Inglês (CC)","closed captions remain distinguishable")
+Harness_Equal(TrackPanelRows(invalid,true,words).Count(),1,"Off remains available without subtitles")
+Harness_Equal(TrackPanelRows(invalid,false,words).Count(),0,"missing audio does not invent a choice")
+duplicates=TrackPanelEntries([{TrackName:"one",Language:"por",Description:"por 1"},{TrackName:"two",Language:"por",Description:"por 2"}],invalid,"subtitle",words)
+rows=TrackPanelRows(duplicates,true,words)
+Harness_Equal(rows[1].label,"Português","raw native description is hidden")
+Harness_Equal(rows[2].label,"Português (2)","duplicate variants remain distinct without unknown-format text")
+Harness_Equal(TrackPanelRestoreIndex([{id:"en"}],[{id:"pt"},{id:"en"}],0),1,"late Portuguese tracks do not move the browsed English choice")
+Harness_Equal(TrackPanelRestoreIndex([{id:"en"}],[],0),-1,"empty refresh has no focus index")
 print "Assertions passed:"; m.passed; " failed:"; m.failed
 if m.failed = 0 then print "TRACK PANEL PASS" else print "TRACK PANEL FAIL"
 `;
 const target=path.join(root,'work','track-panel-run.brs');
 fs.writeFileSync(target,fs.readFileSync(path.join(root,'tests','harness.brs'),'utf8')+'\n'+fs.readFileSync(path.join(root,'source','util','TrackPanelModel.brs'),'utf8')+'\n'+cases);
-const result=spawnSync(path.join(root,'node_modules','.bin','brs'),['--root',path.join(root,'work'),target],{encoding:'utf8',cwd:root});
+const result=spawnSync(path.join(root,'node_modules/.bin/brs'),['--root',path.join(root,'work'),target],{encoding:'utf8',cwd:root});
 process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');
 if(result.status!==0 || !(result.stdout||'').includes('TRACK PANEL PASS'))process.exit(1);

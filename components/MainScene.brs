@@ -47,6 +47,7 @@ sub init()
     m.streamsScreen.ObserveField("pushRequest", "onStreamsAction")
     m.playerScreen = m.top.FindNode("playerScreen")
     m.playerScreen.ObserveField("watchStateUpdate", "onWatchStateUpdate")
+    m.playerScreen.ObserveField("pushRequest", "onPlayerAction")
 
     ' SettingsScreen, AddonsScreen and SearchScreen are content-focused (no
     ' pushes of their own; Search pushes Details like the others). SearchScreen
@@ -245,6 +246,27 @@ sub onStreamsAction()
     m.stack.push(request.screen, request.params)
 end sub
 
+sub onPlayerAction()
+    request = m.playerScreen.pushRequest
+    if request = invalid or request.screen = invalid then return
+    if not m.playerScreen.screenActive then return
+    if request.screen = "back"
+        m.stack.pop()
+        return
+    end if
+    if request.screen = "streamsScreen"
+        m.stack.pop()
+        if m.stack.has("streamsScreen")
+            m.stack.popTo("streamsScreen")
+            m.streamsScreen.callFunc("OnEnter", request.params)
+        else
+            m.stack.push(request.screen, request.params)
+        end if
+    else
+        m.stack.push(request.screen, request.params)
+    end if
+end sub
+
 ' Screens and the player still publish through their existing fields. MainScene
 ' is the event boundary and forwards each plain-data change to the coordinator
 ' that owns queueing, serialization, task lifecycle, and the deferred player
@@ -306,6 +328,7 @@ end sub
 
 ' The add-on manager uninstalled a non-built-in: screen rep, then gateway.
 sub onAddonRemoved()
+    InvalidateContentCache()
     if m.addonsScreen = invalid then return
     change = m.addonsScreen.addonRemoved
     if change <> invalid then AccountAddonRemoved(change.id)
@@ -314,6 +337,7 @@ end sub
 ' The add-on manager installed through a manifest URL: screen rep, then
 ' gateway. Descriptor rides verbatim.
 sub onAddonInstalled()
+    InvalidateContentCache()
     if m.addonsScreen = invalid then return
     change = m.addonsScreen.addonInstalled
     if change <> invalid then AccountAddonInstalled(change.transportUrl, change.manifest)
@@ -466,6 +490,7 @@ end function
 ' forgetting a fan-out here. Guest and stremio stay under separate registry keys
 ' with a clear-and-reload swap, so the two sessions never mix.
 sub ReconcileSession()
+    InvalidateContentCache()
     if m.storeHost <> invalid then m.storeHost.callFunc("SwitchSession", EffectiveSessionType())
 end sub
 
@@ -724,6 +749,7 @@ sub AdoptAddonSyncResult(result as object)
         return
     end if
 
+    InvalidateContentCache()
     added = 0
     skipped = 0
     failed = 0
@@ -875,6 +901,7 @@ end function
 ' apply the optional server setting, show the localized result dialog, and let
 ' Home/player re-derive data that may have changed while the import ran.
 sub ImportFinished(summary as object)
+    InvalidateContentCache()
     if summary = invalid then return
     lines = []
     bullets = []
@@ -1038,3 +1065,9 @@ function onKeyEvent(key as string, press as boolean) as boolean
 
     return false
 end function
+
+' Epoch invalidation also refuses late cache writes from tasks started earlier.
+sub InvalidateContentCache()
+    cacheNode = m.top.FindNode("responseCache")
+    if cacheNode <> invalid then cacheNode.callFunc("Clear")
+end sub

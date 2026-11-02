@@ -1,4 +1,6 @@
 ' HomeScreen — the stack bottom: continue watching first, then catalog rows.
+' Netflix-style immersive hero banner with dynamic selection tracking.
+' Collapsible side rail with user profile and sections.
 '
 ' The body is a single RowList: Roku owns the whole grid physics — vertical row
 ' scrolling/clipping (no row is ever stranded past the screen edge), horizontal
@@ -26,48 +28,81 @@ sub init()
     m.catalog = m.top.FindNode("catalog")
     m.catalog.ObserveField("rowItemSelected", "onRowItemSelected")
     m.catalog.ObserveField("rowItemFocused", "UpdateSelectedTitle")
+    m.catalogArea = m.top.FindNode("catalogArea")
     m.selectedTitle = m.top.FindNode("selectedTitle")
     m.emptyState = m.top.FindNode("emptyState")
     m.rail = m.top.FindNode("rail")
     m.rail.ObserveField("rowItemSelected", "onRailItemSelected")
+    m.railBg = m.top.FindNode("railBg")
+    m.railClip = m.top.FindNode("railClip")
+    m.railAnimation = m.top.FindNode("railAnimation")
+    m.railWidthInterpolator = m.top.FindNode("railWidthInterpolator")
+    m.railBg.ObserveField("width", "ApplyRailWidth")
+    m.railExpanded = false
+    m.railMotionAllowed = true
     m.homeSub = m.top.FindNode("homeSub")
     m.homeHint = ""
 
+    ' Hero banner nodes
+    m.heroBg = m.top.FindNode("heroBg")
+    m.heroBgNext = m.top.FindNode("heroBgNext")
+    m.heroLogo = m.top.FindNode("heroLogo")
+    m.heroTitle = m.top.FindNode("heroTitle")
+    m.heroMeta = m.top.FindNode("heroMeta")
+    m.heroDesc = m.top.FindNode("heroDesc")
+    m.heroInfoGroup = m.top.FindNode("heroInfoGroup")
+    m.heroButtonsGroup = m.top.FindNode("heroButtonsGroup")
+    m.btnPlay = m.top.FindNode("btnPlay")
+    m.btnDetails = m.top.FindNode("btnDetails")
+    m.heroDebounceTimer = m.top.FindNode("heroDebounceTimer")
+    m.heroCrossfadeAnim = m.top.FindNode("heroCrossfadeAnim")
+
+    ' Profile nodes
+    m.profileName = m.top.FindNode("profileName")
+    m.profileSub = m.top.FindNode("profileSub")
+    m.avatarInitial = m.top.FindNode("avatarInitial")
+
+    if m.heroDebounceTimer <> invalid then m.heroDebounceTimer.ObserveField("fire", "onHeroDebounce")
+    if m.heroCrossfadeAnim <> invalid then m.heroCrossfadeAnim.ObserveField("state", "onHeroCrossfadeState")
+    if m.heroBgNext <> invalid then m.heroBgNext.ObserveField("loadStatus", "onHeroBgLoaded")
+    if m.btnPlay <> invalid then m.btnPlay.ObserveField("buttonSelected", "onHeroPlay")
+    if m.btnDetails <> invalid then m.btnDetails.ObserveField("buttonSelected", "onHeroDetails")
+
+    m.heroGeneration = 0
+    m.currentHeroMeta = invalid
+    m.currentHeroRow = 0
+    m.heroCollapsed = false
+
     t = Theme()
+    homeBg = m.top.FindNode("homeBg")
+    if homeBg <> invalid then homeBg.color = t.screenBg
     m.top.FindNode("homeTitle").color = t.accent
     m.homeSub.color = t.textSecondary
-    m.selectedTitle.color = t.textPrimary
+    if m.selectedTitle <> invalid then m.selectedTitle.color = t.textPrimary
+    if m.heroTitle <> invalid then m.heroTitle.color = t.textPrimary
+    if m.heroMeta <> invalid then m.heroMeta.color = &hCCCCCCFF
+    if m.heroDesc <> invalid then m.heroDesc.color = &hEEEEEEFF
+    if m.profileName <> invalid then m.profileName.color = t.textPrimary
+    if m.profileSub <> invalid then m.profileSub.color = t.textSecondary
     m.emptyState.color = t.textSecondary
     m.top.FindNode("brand").color = t.accent
+    m.top.FindNode("compactBrand").color = t.accent
     m.top.FindNode("railBg").color = t.railTint
-    m.catalog.rowLabelOffset = [0,10]
+    m.catalog.rowLabelOffset = [0, 10]
     m.catalog.focusBitmapBlendColor = t.accentFocus
 
     m.catalogRowsBuilt = false
     m.catalogRows = []
     m.gridRows = []
     m.gridBuilt = false
-    ' The language the grid was built in — see OnEnter, where a
-    ' change of it is what makes the grid rebuild.
     m.gridLanguage = ""
     m.cwSignature = ""
     m.catalogSignature = ""
     m.railBuilt = false
     m.railLanguage = ""
+    ApplyRailWidth()
 end sub
 
-' Kick off the catalog walk. The walking happens off the UI thread in a
-' HomeCatalogsTask (a hung add-on then costs the worker, not startup); it
-' republishes the row set after every completed catalog, and onCatalogState
-' slots each new row into the grid immediately. Only the plain addon descriptors
-' cross the thread boundary. A no-op once started or finished.
-'
-' The walk records which add-on set it derived from (see CatalogSignature), which
-' is the only way anything downstream can later tell that Home's rows have been
-' overtaken. It records the set BEFORE branching on the empty case on purpose: a
-' walk that latched on an empty registry is exactly the state that must still be
-' recognised as stale once add-ons arrive, and a signature left at "" would make
-' that indistinguishable from a correct empty grid.
 sub StartCatalogLoad()
     if m.catalogRowsBuilt or m.catalogTask <> invalid then return
     if m.stores = invalid then
@@ -87,11 +122,6 @@ sub StartCatalogLoad()
     m.catalogTask = task
 end sub
 
-' The add-on set Home's catalog rows were derived from, as a comparable string.
-' Mirrors ContinueWatchingSignature deliberately: derive from live store state,
-' sort so ordering cannot make two equal sets look different, join. No network
-' and no catalog walk — this is a set comparison, not a re-derivation, so it is
-' cheap enough to call on every entry and after every sync.
 function CatalogSignature() as string
     if m.stores = invalid then return ""
     addons = m.stores.addons.callFunc("AddonsGetAll")
@@ -104,32 +134,12 @@ function CatalogSignature() as string
     return parts.Join(";")
 end function
 
-' Re-derive the grid if the add-on set has moved under it. Cheap when fresh, and
-' it is the ONLY thing that can notice Home is stale.
-'
-' Why this exists. The add-on sync used to gate its rebuild on "at least one
-' add-on was newly installed". That predicate is false on every run after the
-' first: the account's add-ons are already in the registry, so none of them is
-' "added", so Home was never told to re-derive. Home kept the catalog set it
-' walked at launch — in a stremio session that is often just the built-in seeds,
-' because a session swap replaces what AddonsGetAll returns wholesale — while the
-' Add-ons screen, which reads the registry live, listed the account's add-ons
-' correctly. The two views disagreed permanently, Settings-and-back changed
-' nothing, and no fault ever appeared, because nothing had failed. The sync
-' succeeded and simply told nobody.
-'
-' Comparing the add-on SET rather than a count also covers the two cases no
-' count can see: a session swap (the set changes without anything being
-' installed) and a walk that latched on an empty registry.
 sub EnsureCurrentRows()
-    if m.stores = invalid then return
+    if m.stores = invalid or not m.gridBuilt then return
     if m.catalogSignature = CatalogSignature() then return
     RebuildRows()
 end sub
 
-' Each result carries one completed row ({ row, done: false }) or the final
-' completion marker. The task assigns each row a stable index, so the slot is
-' cwOffset + index whether the Continue Watching row is present or not.
 sub onCatalogState(event as object)
     if m.catalogRowsBuilt then return
     state = event.GetData()
@@ -146,15 +156,16 @@ end sub
 ' ascending index order, so the grid stays in task order even though each
 ' snapshot is a full copy.
 sub ApplyCatalogRow(row as object)
+    cwOffset = 0
+    if m.gridRows.Count() > 0 and m.gridRows[0].source = "library" then cwOffset = 1
     descriptor = {
-        addonAddress: row.addonAddress
+        source: "catalog"
         title: row.title
         metaType: row.metaType
+        addonAddress: row.addonAddress
         posterShape: TilePosterShape(row.metas)
         metas: row.metas
     }
-    cwOffset = 0
-    if m.gridRows.Count() > 0 and m.gridRows[0].source = "library" then cwOffset = 1
     slot = cwOffset + row.index
     node = MakeRowNode(descriptor, invalid)
     if m.catalog.content <> invalid and m.catalog.content.getChildCount() > slot
@@ -170,10 +181,17 @@ sub ApplyCatalogRow(row as object)
     UpdateCatalogFeedback()
 end sub
 
-' Rewrite row titles so duplicated catalog names carry their type suffix; only
-' interesting once a later row turns a previously-unique name into a duplicate.
-' A malformed (invalid/blank) title is coerced to "" so the histogram lookup
-' cannot throw — the grid degrades to a blank label instead of crashing.
+function DuplicateCounts() as object
+    counts = {}
+    for each row in m.gridRows
+        title = row.title
+        if title = invalid then title = ""
+        if counts[title] = invalid then counts[title] = 0
+        counts[title] = counts[title] + 1
+    end for
+    return counts
+end function
+
 sub ResyncRowLabels()
     if m.catalog.content = invalid then return
     counts = DuplicateCounts()
@@ -186,8 +204,6 @@ sub ResyncRowLabels()
     end for
 end sub
 
-' The task finished (the walk completed or errored out): the rows already
-' applied are the final row set. Tear the task node down.
 sub FinishCatalogLoad()
     m.catalogRowsBuilt = true
     UpdateCatalogFeedback()
@@ -198,11 +214,6 @@ sub FinishCatalogLoad()
     end if
 end sub
 
-' Assemble the visible grid: Continue Watching (when the local library has
-' entries) first, then the catalog rows as they stream in via onCatalogState.
-' On first entry the content tree is created here; later visits refresh only the
-' live Continue Watching row in place (see RefreshContinueWatching) so the rest
-' of the grid keeps the RowList's own scroll + focus.
 sub BuildRows()
     m.gridRows = []
     cw = LibraryRow()
@@ -223,65 +234,29 @@ sub BuildRows()
     UpdateCatalogFeedback()
 end sub
 
-' Rebuild the grid from the current add-on set — called by the Scene after a
-' deep-link import registered new add-ons (see MainScene FinishImport). Mirrors
-' a fresh launch: drop any in-flight catalog walk first so no stale result can
-' apply, clear the accumulated descriptors, rebuild the content from Continue
-' Watching only, then restart the walk so imported catalogs appear without an
-' app relaunch. Safe to run while Home is under a dialog: the walk re-fills the
-' rows one at a time behind it, and the existing guards (gridBuilt /
-' catalogRowsBuilt / catalogTask) keep later OnEnter visits consistent.
 function RebuildRows() as void
     if m.catalogTask <> invalid
-        ' STOP, and not a bare RemoveChild. The walk is a Task on its own thread,
-        ' so removing a running Task node frees the node WITHOUT killing the
-        ' worker — the trap AsyncTask.bs opens by spelling out. This walk can
-        ' still be fetching when a deep-link import calls RebuildRows, so
-        ' unobserved it runs to completion and lands its descriptors through
-        ' onCatalogState anyway: two walks interleaving rows into a grid that has
-        ' already been thrown away and rebuilt, with StartCatalogLoad below
-        ' having launched a third. Reap with doStop = true, as AsyncTask.bs
-        ' prescribes for a possibly-still-running task, and let the helper do the
-        ' unobserving too. (FinishCatalogLoad reaps with false on purpose — by
-        ' then that task has already reported in.)
-        AsyncTask_Reap(m.catalogTask, m.top, true)
+        task = m.catalogTask
         m.catalogTask = invalid
+        AsyncTask_Reap(task, m.top, true)
     end if
-    m.catalogRows = []
     m.catalogRowsBuilt = false
-    m.gridRows = []
+    m.catalogRows = []
     m.gridBuilt = false
+    m.catalogSignature = ""
     BuildRows()
+    m.gridBuilt = true
     m.gridLanguage = TextsLanguage()
     StartCatalogLoad()
 end function
 
-' Rebuild the title histogram across the current grid rows; used to decide the
-' duplicated-name type suffix. An associative array cannot be keyed by invalid,
-' so malformed titles are coerced to "" before the lookup (a row without a
-' usable title then just groups with the other blank-label rows).
-function DuplicateCounts() as object
-    counts = {}
-    for each row in m.gridRows
-        title = row.title
-        if title = invalid then title = ""
-        count = counts[title]
-        if count = invalid then count = 0
-        counts[title] = count + 1
-    end for
-    return counts
-end function
-
-' Build the ContentNode for one grid row: a titled group of poster children.
-' counts carries the merged name histogram so duplicated catalog labels get
-' their type suffix (it is invalid for rows streamed in before their duplicate
-' arrives — ResyncRowLabels backfills the suffix then, and for a freshly
-' inserted Continue Watching row the label is unique anyway).
-function MakeRowNode(row as object, counts = invalid as object) as object
+function MakeRowNode(row as object, counts as dynamic) as object
     node = CreateObject("roSGNode", "ContentNode")
     label = row.title
     if label = invalid then label = ""
-    if counts <> invalid and counts[label] > 1 then label = label + " · " + TypeLabel(row.metaType)
+    if counts <> invalid and counts[label] <> invalid and counts[label] > 1
+        label = label + " · " + TypeLabel(row.metaType)
+    end if
     node.title = label
     for each meta in row.metas
         glyph = meta.watchedGlyph
@@ -291,13 +266,6 @@ function MakeRowNode(row as object, counts = invalid as object) as object
     return node
 end function
 
-' The poster cell for one grid row. Channel-style add-ons (Stremio content types
-' "channel"/"tv") ship 1:1 posters, so those rows get square cells; everything
-' else keeps the 2:3 poster slab. A catalog-supplied posterShape (folded to the
-' row's majority shape once when the row lands) overrides the type fallback, so
-' a 16:9 catalog gets a wide row instead of letterboxed 2:3 cells. PosterTile
-' sizes itself from the cell it is handed, so this drives both the slot and the
-' tile shape.
 function RowCellSize(row as object) as object
     mt = invalid
     ps = ""
@@ -308,9 +276,6 @@ function RowCellSize(row as object) as object
     return TileCellSize(mt, ps)
 end function
 
-' Per-row item sizes, one vector2d per grid row, in grid order. Rebuilt with the
-' size of m.gridRows whenever the grid changes (rows stream in one at a time and
-' the Continue Watching row slots in front).
 function RowSizes() as object
     sizes = []
     for each row in m.gridRows
@@ -319,23 +284,12 @@ function RowSizes() as object
     return sizes
 end function
 
-' Set both the per-row tile sizes and the matching per-row heights. RowList reads
-' a row's slot height from itemSize.y (one value for every row) unless rowHeights
-' overrides it per row, so a landscape/square row taller-than-its-tile case left
-' phantom space under every non-2:3 row. Mirroring the tile heights fixes the gap.
 sub ApplyCatalogSizes()
     sizes = RowSizes()
     m.catalog.rowItemSize = sizes
     m.catalog.rowHeights = TileRowHeights(sizes)
 end sub
 
-' Paint the shared poster-tile fields — title, hdPosterUrl, progress-bar fraction
-' and watched glyph — onto an item ContentNode. Overlay fields are always
-' written a concrete value (""/0 when there is none): they're typed fields on
-' TileContent, and on a recycled node an "unset" is not reliably cleared by
-' assigning invalid, so a tile that previously held a bar/badge would keep it
-' into a cell that has none. fallbackGlyph is the store-computed glyph when the
-' meta did not carry one.
 sub PaintTileFields(item as object, meta as object, fallbackGlyph as dynamic)
     name = meta.name
     if name = invalid then name = ""
@@ -351,13 +305,40 @@ sub PaintTileFields(item as object, meta as object, fallbackGlyph as dynamic)
     if glyph = invalid then glyph = fallbackGlyph
     if glyph = invalid then glyph = ""
     item.watchedGlyph = glyph
+
+    bg = meta.background
+    if bg = invalid then bg = ""
+    item.background = bg
+
+    logo = meta.logo
+    if logo = invalid then logo = ""
+    item.logo = logo
+
+    desc = meta.description
+    if desc = invalid then desc = ""
+    item.description = desc
+
+    rel = meta.releaseInfo
+    if rel = invalid then rel = ""
+    item.releaseInfo = rel
+
+    rating = meta.imdbRating
+    if rating = invalid then rating = ""
+    item.imdbRating = rating
+
+    rt = meta.runtime
+    if rt = invalid then rt = ""
+    item.runtime = rt
+
+    mid = meta.id
+    if mid = invalid then mid = ""
+    item.metaId = mid
+
+    mtype = meta.type
+    if mtype = invalid then mtype = ""
+    item.metaType = mtype
 end sub
 
-' The top row when the user has watched something: one tile per local
-' continue-watching entry, carrying its resume hint so Details can reopen on
-' the right spot. Items are synthesized catalog metas. Each tile also carries
-' the progress fraction (position/duration) and the coarse watched glyph, so a
-' finished watch paints a bar/badge on the tile without reopening Details.
 function LibraryRow() as dynamic
     if m.stores = invalid then return invalid
     entries = m.stores.library.callFunc("LibraryContinueWatching")
@@ -371,6 +352,11 @@ function LibraryRow() as dynamic
             name: entry.name
             poster: entry.poster
             posterShape: entry.posterShape
+            background: entry.background
+            logo: entry.logo
+            description: entry.description
+            releaseInfo: entry.releaseInfo
+            imdbRating: entry.imdbRating
             videoId: entry.videoId
             season: entry.season
             episode: entry.episode
@@ -399,13 +385,6 @@ function ContinueWatchingSignature() as string
     return parts.Join(";")
 end function
 
-' Live-update the Continue Watching row after progress was made elsewhere,
-' without touching the rest of the grid. The catalog rows' nodes stay bit-for-bit
-' intact, so the RowList's own scroll + focus survive the visit; only the top
-' row's posters/titles change. A row appearing (first watch) or disappearing
-' (history cleared) is handled by inserting/removing precisely that one row —
-' which may clamp focus to the top, an acceptable reset confined to those rare
-' transitions.
 sub RefreshContinueWatching()
     if m.catalog.content = invalid then return
     content = m.catalog.content
@@ -429,10 +408,6 @@ sub RefreshContinueWatching()
     end if
 end sub
 
-' Refresh a row node's poster children to match a fresh meta list, reusing the
-' existing child nodes by index so the RowList sees no structural change in the
-' common case: no flicker, and focus holds even when entries reorder (a watched
-' title rises to the front). Surplus children are trimmed from the tail.
 sub SyncContinueWatchingRow(node as object, metas as object)
     existing = node.getChildCount()
     for c = 0 to metas.Count() - 1
@@ -449,8 +424,6 @@ sub SyncContinueWatchingRow(node as object, metas as object)
     end while
 end sub
 
-' Where the meta for a library-sourced tile comes from. The library records no
-' addon origin, so the Cinemeta built-in (the meta authority) is the default.
 function MetaAddress() as string
     if m.stores = invalid then return ""
     addon = m.stores.addons.callFunc("AddonsGet", "com.linvo.cinemeta")
@@ -458,14 +431,6 @@ function MetaAddress() as string
     return addon.address
 end function
 
-' Row-label suffix for duplicated catalog names.
-'
-' An add-on reports a catalog named "Popular" for a movie catalog and for a
-' series catalog, so two rows would read the same, and the type is what tells
-' them apart. The words are ours — a label we add, so they are translated —
-' and the add-on's title is not, because what an add-on reports is what we
-' show. Which is why the two are separated by a middle dot: a space read as
-' part of the title, a middle dot reads as our annotation on it.
 function TypeLabel(metaType as string) as string
     if metaType = "movie" then return Lang("common", "movies")
     if metaType = "series" then return Lang("common", "series")
@@ -474,21 +439,16 @@ function TypeLabel(metaType as string) as string
 end function
 
 function OnEnter(params as object) as void
-    ' The language first, then the hint line this screen owns: it lives in the
-    ' markup as the English default, and the busy line below saves and
-    ' restores whatever is there — so the hint has to be the table's word
-    ' before anything saves it.
     RefreshTexts()
-    m.homeSub.text = Lang("home", "hint")
+    if m.stores <> invalid and m.stores.settings <> invalid
+        m.railMotionAllowed = not m.stores.settings.callFunc("SettingsGetLightMode")
+    end if
+    m.homeSub.text = ""
     m.top.FindNode("homeTitle").text = Lang("home", "title")
     if not m.railBuilt or m.railLanguage <> TextsLanguage() then BuildRail()
+    UpdateProfileDisplay()
     StartCatalogLoad()
     sig = ContinueWatchingSignature()
-    ' The grid is not rebuilt on every visit — that is what m.gridBuilt is
-    ' for, and the rebuild is the expensive part of this screen. But the grid
-    ' carries words (the Continue-Watching row, the type suffix on a
-    ' duplicated name), and a language change makes every one of them wrong.
-    ' So the language it was built in is part of what the grid remembers.
     if not m.gridBuilt or m.gridLanguage <> TextsLanguage()
         BuildRows()
         m.gridBuilt = true
@@ -497,52 +457,66 @@ function OnEnter(params as object) as void
         RefreshContinueWatching()
     end if
     m.cwSignature = sig
-    ' After the Continue Watching reconciliation, and deliberately last: it is the
-    ' catalog set that a sync can invalidate while the grid is already "built", and
-    ' StartCatalogLoad above is a no-op once the walk has latched. Running it here
-    ' as well means leaving for another screen and coming back repairs a stale
-    ' grid, instead of the staleness being permanent until a relaunch.
     EnsureCurrentRows()
     UpdateCatalogFeedback()
-    ' The place the cursor goes is the place it was left: the grid for a trip
-    ' into the tiles, the rail — at the icon the user left it on — for a trip
-    ' opened from the rail. BlurFocus records which had it.
     if m.railWasFocus = true or m.gridRows.Count() = 0
-        m.rail.SetFocus(true)
+        SetHomeFocus(true)
     else
-        m.catalog.SetFocus(true)
+        SetHomeFocus(false)
     end if
 end function
 
 function OnExit() as void
+    m.railAnimation.control = "stop"
+    if m.heroDebounceTimer <> invalid then m.heroDebounceTimer.control = "stop"
 end function
 
 function OnBackPressed() as boolean
+    if m.btnPlay <> invalid and (m.btnPlay.HasFocus() or (m.btnDetails <> invalid and m.btnDetails.HasFocus()))
+        m.catalog.SetFocus(true)
+        m.catalog.drawFocusFeedback = true
+        return true
+    end if
+    if m.rail.HasFocus() and m.gridRows.Count() > 0
+        SetHomeFocus(false)
+        return true
+    end if
     return false
 end function
 
-' Remember where the grid sits when another screen takes focus. ScreenStack
-' calls BlurFocus on every push; the content tree is never replaced after first
-' entry, so the RowList keeps its own scroll + focus across every trip away and
-' back — the one thing that must be saved is whether the focus belonged to the
-' rail or the grid, so returning re-enters through the same one. A
-' Continue-Watching open still in flight is cancelled: the user moved on, so
-' its Details push must not land on the next screen.
 sub BlurFocus()
     m.railWasFocus = m.rail.HasFocus()
     CancelOpen()
 end sub
 
-' The left rail: a fixed one-column icon menu. Built once (nodes created in init
-' can be dropped pre-Show, so it happens on first OnEnter like the catalog). The
-' last row is a modal (the support dialog), so its entry carries dialog = true
-' and onRailItemSelected routes it through the pushRequest contract the same
-' way; MainScene picks it up and shows the native dialog instead of pushing a
-' stack screen.
+sub UpdateProfileDisplay()
+    user = invalid
+    if m.stores <> invalid and m.stores.auth <> invalid
+        user = m.stores.auth.callFunc("AuthGetUser")
+    end if
+    name = Lang("home", "guest")
+    subtext = "Rokumio"
+    initial = "U"
+    if user <> invalid
+        if user.email <> invalid and user.email <> ""
+            name = user.email
+            initial = UCase(user.email.Left(1))
+        else if user.fullname <> invalid and user.fullname <> ""
+            name = user.fullname
+            initial = UCase(user.fullname.Left(1))
+        end if
+    end if
+    if m.profileName <> invalid then m.profileName.text = name
+    if m.profileSub <> invalid then m.profileSub.text = subtext
+    if m.avatarInitial <> invalid then m.avatarInitial.text = initial
+end sub
+
 sub BuildRail()
     entries = [
         { label: Lang("home", "navSearch"), glyph: "pkg:/images/search.png", screen: "searchScreen" }
-        { label: Lang("home", "navDiscover"), glyph: "pkg:/images/discover.png", screen: "discoverScreen" }
+        { label: Lang("home", "navHome"), glyph: "pkg:/images/discover.png", screen: "homeScreen", active: true }
+        { label: Lang("home", "navSeries"), glyph: "pkg:/images/discover.png", screen: "discoverScreen", params: { type: "series" } }
+        { label: Lang("home", "navMovies"), glyph: "pkg:/images/discover.png", screen: "discoverScreen", params: { type: "movie" } }
         { label: Lang("home", "navLibrary"), glyph: "pkg:/images/library.png", screen: "libraryScreen" }
         { label: Lang("home", "navAddons"), glyph: "pkg:/images/puzzle.png", screen: "addonsScreen" }
         { label: Lang("home", "navSettings"), glyph: "pkg:/images/settings.png", screen: "settingsScreen" }
@@ -555,6 +529,9 @@ sub BuildRail()
         item = row.CreateChild("ContentNode")
         item.title = entry.glyph
         item.shortDescriptionLine1 = entry.label
+        active = false
+        if entry.active = true then active = true
+        item.AddFields({menuExpanded: m.railExpanded, active: active})
     end for
     m.rail.content = content
     m.rail.numRows = entries.Count()
@@ -562,61 +539,80 @@ sub BuildRail()
     m.railLanguage = TextsLanguage()
 end sub
 
-' OK on a rail icon: an action request the Scene routes. Stack screens publish
-' screen + params; the support modal adds dialog = true, which must survive into
-' the pushRequest or the Scene would push the dialog node as a bogus stack
-' screen and hide Home instead of showing the native dialog over it.
 sub onRailItemSelected()
     data = m.rail.rowItemSelected
     if data = invalid or data.Count() < 2 then return
     row = data[0]
     if row < 0 or m.railEntries = invalid or row >= m.railEntries.Count() then return
-    entry = m.railEntries[row]
+    target = m.railEntries[row]
+    if target.screen = "homeScreen"
+        SetHomeFocus(false)
+        return
+    end if
     request = {
-        screen: entry.screen
+        screen: target.screen
         params: {}
     }
-    if entry.dialog = true then request.dialog = true
+    if target.params <> invalid then request.params = target.params
+    if target.dialog = true then request.dialog = true
     m.top.pushRequest = request
 end sub
 
-' Cross-focus between the rail and the catalog grid. Left from the grid enters
-' the rail; Right from the rail enters the grid. Whether a RowList at its left
-' edge lets Left bubble here is device-dependent — if the grid swallows it, the
-' fallback is starting Home focus on the rail. Verify on-device.
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
     if key = "right" and m.rail.HasFocus()
-        m.catalog.SetFocus(true)
+        SetHomeFocus(false)
         return true
     else if key = "left" and m.catalog.HasFocus()
-        m.rail.SetFocus(true)
+        SetHomeFocus(true)
+        return true
+    else if key = "up" and m.catalog.HasFocus()
+        if m.catalog.rowItemFocused <> invalid and m.catalog.rowItemFocused[0] = 0
+            if m.btnPlay <> invalid and m.btnPlay.visible
+                m.btnPlay.SetFocus(true)
+                m.catalog.drawFocusFeedback = false
+                return true
+            end if
+        end if
+    else if key = "down" and (m.btnPlay <> invalid and m.btnPlay.HasFocus())
+        m.catalog.SetFocus(true)
+        m.catalog.drawFocusFeedback = true
+        return true
+    else if key = "down" and (m.btnDetails <> invalid and m.btnDetails.HasFocus())
+        m.catalog.SetFocus(true)
+        m.catalog.drawFocusFeedback = true
+        return true
+    else if key = "right" and (m.btnPlay <> invalid and m.btnPlay.HasFocus())
+        if m.btnDetails <> invalid
+            m.btnDetails.SetFocus(true)
+            return true
+        end if
+    else if key = "left" and (m.btnDetails <> invalid and m.btnDetails.HasFocus())
+        if m.btnPlay <> invalid
+            m.btnPlay.SetFocus(true)
+            return true
+        end if
+    else if key = "left" and (m.btnPlay <> invalid and m.btnPlay.HasFocus())
+        SetHomeFocus(true)
         return true
     else if key = "replay"
-        if m.catalogTask = invalid then RebuildRows()
+        if m.catalogTask = invalid
+            InvalidateHomeCache()
+            RebuildRows()
+        end if
         return true
     else if key = "options"
-        if m.catalog.HasFocus()
-            m.rail.SetFocus(true)
+        if m.catalog.HasFocus() or (m.btnPlay <> invalid and m.btnPlay.HasFocus()) or (m.btnDetails <> invalid and m.btnDetails.HasFocus())
+            SetHomeFocus(true)
             return true
         else if m.rail.HasFocus()
-            m.catalog.SetFocus(true)
+            SetHomeFocus(false)
             return true
         end if
     end if
     return false
 end function
 
-' rowItemSelected is a field observer, so this receives the roSGNodeEvent. Its
-' data is a [row, itemIndex] pair; the selected name comes from the row's own
-' data (the tiles only know their parsed label). A catalog tile opens Details
-' for its meta. A Continue-Watching tile adds the resume hint and, like any
-' other tile, needs its full meta from the Cinemeta built-in by id (the local
-' record stores only what the Home row shows — id, name, poster, resume) so
-' Details renders the same full hero as a catalog-opened title; that fetch now
-' runs off the UI thread (OpenContinueWatching) so the grid stays interactive
-' while it answers, and on failure the slim record falls back so the row still
-' opens.
 sub onRowItemSelected(event as object)
     data = event.GetData()
     if data = invalid or data.Count() < 2 then return
@@ -641,11 +637,6 @@ sub onRowItemSelected(event as object)
     end if
 end sub
 
-' Begin opening a Continue-Watching tile. The full meta is fetched off the UI
-' thread so Home stays interactive (Back, rail and other tiles keep working);
-' the hint line shows "Loading…" meanwhile. A newer tile press or any
-' navigation away cancels the pending open (CancelOpen); when the meta lands
-' Details is pushed with the full hero, or the slim record on failure.
 sub OpenContinueWatching(item as object)
     address = MetaAddress()
     CancelOpen()
@@ -674,11 +665,6 @@ sub OpenContinueWatching(item as object)
     m.openTask = task
 end sub
 
-' Stop a pending Continue-Watching open: tear down any in-flight task, clear the
-' pending context and restore the hint. Called on blur (navigating away cancels
-' the open) and when another tile supersedes it. STOP is the real cancel — merely
-' removing a running Task node does not kill its worker thread (see MainScene) —
-' and dropping the observer means its result can never land afterwards.
 sub CancelOpen()
     if m.openTask <> invalid
         task = m.openTask
@@ -689,10 +675,6 @@ sub CancelOpen()
     ShowHomeBusy(false)
 end sub
 
-' The full meta arrived (or failed). CancelOpen dropped any superseded task's
-' result before it could fire, so the pending context here is still the one that
-' started this task. Push Details with the full meta, or the slim record on
-' failure so the row still opens.
 sub onContinueWatchingLoaded()
     if m.openTask = invalid then return
     task = m.openTask
@@ -717,8 +699,6 @@ sub onContinueWatchingLoaded()
     }
 end sub
 
-' A brief "Loading…" on the hint line while the Continue-Watching meta is
-' fetched; the original hint text comes back when the open resolves or cancels.
 sub ShowHomeBusy(show as boolean)
     if m.homeSub = invalid then return
     if show
@@ -732,25 +712,29 @@ sub ShowHomeBusy(show as boolean)
     end if
 end sub
 
-' Empty/loading feedback is independent of the selected title and never replaces data.
 sub UpdateCatalogFeedback()
     if m.emptyState = invalid then return
     empty = m.gridRows.Count() = 0
     m.emptyState.visible = empty
     if empty
-        m.selectedTitle.text = ""
+        if m.selectedTitle <> invalid then m.selectedTitle.text = ""
+        if m.heroTitle <> invalid then m.heroTitle.text = ""
+        if m.heroDesc <> invalid then m.heroDesc.text = ""
+        if m.heroMeta <> invalid then m.heroMeta.text = ""
+        if m.heroButtonsGroup <> invalid then m.heroButtonsGroup.visible = false
         if m.catalogRowsBuilt
             m.emptyState.text = Lang("home", "empty")
         else
             m.emptyState.text = Lang("home", "loading")
         end if
     else
+        if m.heroButtonsGroup <> invalid then m.heroButtonsGroup.visible = true
         UpdateSelectedTitle()
     end if
 end sub
 
 sub UpdateSelectedTitle()
-    if m.selectedTitle = invalid or m.catalog.content = invalid then return
+    if m.catalog = invalid or m.catalog.content = invalid then return
     focusedItem = m.catalog.rowItemFocused
     if focusedItem = invalid or focusedItem.Count() < 2 then return
     if focusedItem[0] < 0 or focusedItem[1] < 0 then return
@@ -758,6 +742,242 @@ sub UpdateSelectedTitle()
     if row = invalid then return
     item = row.GetChild(focusedItem[1])
     if item = invalid then return
-    m.selectedTitle.text = item.title
-    if item.shortDescriptionLine2 <> invalid and item.shortDescriptionLine2 <> "" then m.selectedTitle.text = item.title + " · " + item.shortDescriptionLine2
+
+    if m.selectedTitle <> invalid
+        m.selectedTitle.text = item.title
+        if item.shortDescriptionLine2 <> invalid and item.shortDescriptionLine2 <> "" then m.selectedTitle.text = item.title + " · " + item.shortDescriptionLine2
+    end if
+
+    if focusedItem[0] > 0
+        SetHeroCollapsed(true)
+    else
+        SetHeroCollapsed(false)
+    end if
+
+    m.heroGeneration = m.heroGeneration + 1
+    if m.heroDebounceTimer <> invalid
+        m.heroDebounceTimer.control = "stop"
+        m.heroDebounceTimer.control = "start"
+    end if
+end sub
+
+sub SetHeroCollapsed(collapsed as boolean)
+    if m.heroCollapsed = collapsed then return
+    m.heroCollapsed = collapsed
+    if m.catalog = invalid then return
+
+    if collapsed
+        m.catalog.translation = [0, 140]
+        if m.heroButtonsGroup <> invalid then m.heroButtonsGroup.visible = false
+        if m.heroDesc <> invalid then m.heroDesc.visible = false
+    else
+        m.catalog.translation = [0, 360]
+        if m.heroButtonsGroup <> invalid then m.heroButtonsGroup.visible = true
+        if m.heroDesc <> invalid then m.heroDesc.visible = true
+    end if
+end sub
+
+sub onHeroDebounce()
+    if m.catalog = invalid or m.catalog.content = invalid then return
+    focusedItem = m.catalog.rowItemFocused
+    if focusedItem = invalid or focusedItem.Count() < 2 then return
+    if focusedItem[0] < 0 or focusedItem[1] < 0 then return
+    row = m.catalog.content.GetChild(focusedItem[0])
+    if row = invalid then return
+    item = row.GetChild(focusedItem[1])
+    if item = invalid then return
+
+    m.currentHeroMeta = item
+    m.currentHeroRow = focusedItem[0]
+
+    if m.heroTitle <> invalid then m.heroTitle.text = item.title
+    if m.heroDesc <> invalid
+        desc = item.description
+        if desc = invalid or desc = "" then desc = Lang("common", "noSynopsis")
+        m.heroDesc.text = desc
+    end if
+
+    if m.heroMeta <> invalid
+        parts = []
+        if item.releaseInfo <> invalid and item.releaseInfo <> "" then parts.Push(item.releaseInfo)
+        if item.imdbRating <> invalid and item.imdbRating <> "" then parts.Push("★ " + item.imdbRating)
+        if item.runtime <> invalid and item.runtime <> "" then parts.Push(FormatHeroRuntime(item.runtime))
+        if item.metaType <> invalid and item.metaType <> "" then parts.Push(TypeLabel(item.metaType))
+        m.heroMeta.text = parts.Join("  ·  ")
+    end if
+
+    if m.btnPlay <> invalid
+        if item.progress <> invalid and item.progress > 0
+            m.btnPlay.text = Lang("home", "resume")
+        else
+            m.btnPlay.text = Lang("home", "watch")
+        end if
+    end if
+    if m.btnDetails <> invalid then m.btnDetails.text = Lang("home", "moreInfo")
+
+    if item.logo <> invalid and item.logo <> "" and m.heroLogo <> invalid
+        m.heroLogo.uri = item.logo
+        m.heroLogo.visible = true
+        if m.heroTitle <> invalid then m.heroTitle.visible = false
+    else
+        if m.heroLogo <> invalid then m.heroLogo.visible = false
+        if m.heroTitle <> invalid then m.heroTitle.visible = true
+    end if
+
+    bg = item.background
+    if bg <> invalid and bg <> ""
+        if m.heroBgNext <> invalid
+            m.heroBgNext.opacity = 0.0
+            m.heroBgNext.uri = bg
+        end if
+    else
+        if m.heroBg <> invalid then m.heroBg.uri = ""
+        if m.heroBgNext <> invalid
+            m.heroBgNext.uri = ""
+            m.heroBgNext.opacity = 0.0
+        end if
+    end if
+end sub
+
+sub onHeroBgLoaded()
+    if m.heroBgNext = invalid then return
+    status = m.heroBgNext.loadStatus
+    if status = "ready"
+        if m.heroCrossfadeAnim <> invalid
+            m.heroCrossfadeAnim.control = "stop"
+            m.heroCrossfadeAnim.control = "start"
+        else
+            m.heroBg.uri = m.heroBgNext.uri
+            m.heroBg.opacity = 1.0
+            m.heroBgNext.opacity = 0.0
+        end if
+    else if status = "failed"
+        m.heroBgNext.uri = ""
+        m.heroBg.uri = ""
+    end if
+end sub
+
+sub onHeroCrossfadeState()
+    if m.heroCrossfadeAnim = invalid or m.heroBg = invalid or m.heroBgNext = invalid then return
+    if m.heroCrossfadeAnim.state = "stopped"
+        m.heroBg.uri = m.heroBgNext.uri
+        m.heroBg.opacity = 1.0
+        m.heroBgNext.opacity = 0.0
+    end if
+end sub
+
+function FormatHeroRuntime(rt as dynamic) as string
+    if rt = invalid then return ""
+    mins = 0
+    if Type(rt) = "roInt" or Type(rt) = "Integer"
+        mins = rt
+    else if Type(rt) = "roString" or Type(rt) = "String"
+        mins = Val(rt)
+    end if
+    if mins <= 0 then return rt.toStr()
+    h = Int(mins / 60)
+    m = mins mod 60
+    if h > 0 and m > 0
+        return h.toStr() + "h " + m.toStr() + "min"
+    else if h > 0
+        return h.toStr() + "h"
+    else
+        return m.toStr() + "min"
+    end if
+end function
+
+sub onHeroPlay()
+    if m.currentHeroMeta = invalid or m.gridRows = invalid then return
+    rowIdx = 0
+    if m.currentHeroRow <> invalid and m.currentHeroRow < m.gridRows.Count() then rowIdx = m.currentHeroRow
+    row = m.gridRows[rowIdx]
+    if row = invalid then return
+
+    if row.source = "library"
+        OpenContinueWatching(m.currentHeroMeta)
+    else
+        m.top.pushRequest = {
+            screen: "detailsScreen"
+            params: {
+                addonAddress: row.addonAddress
+                meta: m.currentHeroMeta
+            }
+        }
+    end if
+end sub
+
+sub onHeroDetails()
+    if m.currentHeroMeta = invalid or m.gridRows = invalid then return
+    rowIdx = 0
+    if m.currentHeroRow <> invalid and m.currentHeroRow < m.gridRows.Count() then rowIdx = m.currentHeroRow
+    row = m.gridRows[rowIdx]
+    if row = invalid then return
+
+    m.top.pushRequest = {
+        screen: "detailsScreen"
+        params: {
+            addonAddress: row.addonAddress
+            meta: m.currentHeroMeta
+        }
+    }
+end sub
+
+sub SetHomeFocus(menu as boolean)
+    if not menu and m.gridRows.Count() = 0 then menu = true
+    if menu
+        m.rail.SetFocus(true)
+        m.catalog.drawFocusFeedback = false
+        m.catalog.opacity = 0.55
+    else
+        m.catalog.SetFocus(true)
+        m.catalog.drawFocusFeedback = true
+        m.catalog.opacity = 1.0
+    end if
+    SetRailExpanded(menu)
+end sub
+
+sub SetRailExpanded(expanded as boolean)
+    m.railExpanded = expanded
+    content = m.rail.content
+    if content <> invalid
+        for i = 0 to content.GetChildCount() - 1
+            row = content.GetChild(i)
+            if row.GetChildCount() > 0 then row.GetChild(0).menuExpanded = expanded
+        end for
+    end if
+    target = 96
+    if expanded then target = 360
+    m.railAnimation.control = "stop"
+    if m.railMotionAllowed and m.railBg.width <> target
+        m.railWidthInterpolator.keyValue = [m.railBg.width, target]
+        m.railAnimation.control = "start"
+    else
+        m.railBg.width = target
+        ApplyRailWidth()
+    end if
+end sub
+
+sub ApplyRailWidth()
+    width = m.railBg.width
+    m.railClip.clippingRect = [0, 0, width, 1080]
+    progress = (width - 96) / 264
+    if progress < 0 then progress = 0
+    if progress > 1 then progress = 1
+    m.top.FindNode("brand").opacity = progress
+    m.top.FindNode("compactBrand").opacity = 1 - progress
+
+    if m.profileName <> invalid then m.profileName.opacity = progress
+    if m.profileSub <> invalid then m.profileSub.opacity = progress
+
+    if m.catalogArea <> invalid
+        catalogX = 136 + progress * (380 - 136)
+        m.catalogArea.translation = [catalogX, 0]
+    end if
+end sub
+
+sub InvalidateHomeCache()
+    scene = m.top.GetScene()
+    if scene = invalid then return
+    cacheNode = scene.FindNode("responseCache")
+    if cacheNode <> invalid then cacheNode.callFunc("Clear")
 end sub

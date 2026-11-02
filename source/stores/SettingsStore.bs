@@ -26,6 +26,13 @@ class SettingsStore
     language as string
     audioPassthrough as boolean
     audioTransmux as boolean
+    preferredAudioLanguage as string
+    preferredSubtitleLanguage as string
+    subtitlesEnabled as boolean
+    autoplayNext as boolean
+    lightMode as boolean
+    largeText as boolean
+    highContrastFocus as boolean
     saveRefused as boolean
 
     sub new(registry = invalid as dynamic)
@@ -34,6 +41,13 @@ class SettingsStore
         m.language = "pt-BR"
         m.audioPassthrough = false
         m.audioTransmux = false
+        m.preferredAudioLanguage = "pt-BR"
+        m.preferredSubtitleLanguage = "pt-BR"
+        m.subtitlesEnabled = true
+        m.autoplayNext = true
+        m.lightMode = false
+        m.largeText = false
+        m.highContrastFocus = false
         m.saveRefused = false
         m.Load()
     end sub
@@ -98,6 +112,76 @@ class SettingsStore
         return m.language
     end function
 
+    function GetPreferredAudioLanguage() as string
+        return m.preferredAudioLanguage
+    end function
+
+    function SetPreferredAudioLanguage(value as string) as boolean
+        m.preferredAudioLanguage = value
+        m.Save()
+        return true
+    end function
+
+    function GetPreferredSubtitleLanguage() as string
+        return m.preferredSubtitleLanguage
+    end function
+
+    function SetPreferredSubtitleLanguage(value as string) as boolean
+        m.preferredSubtitleLanguage = value
+        m.Save()
+        return true
+    end function
+
+    function GetSubtitlesEnabled() as boolean
+        return m.subtitlesEnabled
+    end function
+
+    function SetSubtitlesEnabled(value as boolean) as boolean
+        m.subtitlesEnabled = value
+        m.Save()
+        return true
+    end function
+
+    function GetAutoplayNext() as boolean
+        return m.autoplayNext
+    end function
+
+    function SetAutoplayNext(value as boolean) as boolean
+        m.autoplayNext = value
+        m.Save()
+        return true
+    end function
+
+    function GetLightMode() as boolean
+        return m.lightMode
+    end function
+
+    function SetLightMode(value as boolean) as boolean
+        m.lightMode = value
+        m.Save()
+        return true
+    end function
+
+    function GetLargeText() as boolean
+        return m.largeText
+    end function
+
+    function SetLargeText(value as boolean) as boolean
+        m.largeText = value
+        m.Save()
+        return true
+    end function
+
+    function GetHighContrastFocus() as boolean
+        return m.highContrastFocus
+    end function
+
+    function SetHighContrastFocus(value as boolean) as boolean
+        m.highContrastFocus = value
+        m.Save()
+        return true
+    end function
+
     ' Whether the streaming server may copy the source audio instead of
     ' re-encoding it. Off by default: the device reports AC-3 and some sinks
     ' do not reproduce it, so this is the user's call, not the device's.
@@ -137,6 +221,11 @@ class SettingsStore
         return "false"
     end function
 
+    function BoolToText(value as boolean) as string
+        if value then return "true"
+        return "false"
+    end function
+
     ' Writes every field through the registry and flushes. roRegistrySection.Write
     ' answers with a boolean saying whether it took the value, and that answer
     ' used to be thrown away: a write the registry refused then flushed nothing
@@ -152,6 +241,13 @@ class SettingsStore
         if not m.registry.Write("language", m.language) then ok = false
         if not m.registry.Write("audioPassthrough", m.AudioPassthroughText()) then ok = false
         if not m.registry.Write("audioTransmux", m.AudioTransmuxText()) then ok = false
+        if not m.registry.Write("preferredAudioLanguage", m.preferredAudioLanguage) then ok = false
+        if not m.registry.Write("preferredSubtitleLanguage", m.preferredSubtitleLanguage) then ok = false
+        if not m.registry.Write("subtitlesEnabled", m.BoolToText(m.subtitlesEnabled)) then ok = false
+        if not m.registry.Write("autoplayNext", m.BoolToText(m.autoplayNext)) then ok = false
+        if not m.registry.Write("lightMode", m.BoolToText(m.lightMode)) then ok = false
+        if not m.registry.Write("largeText", m.BoolToText(m.largeText)) then ok = false
+        if not m.registry.Write("highContrastFocus", m.BoolToText(m.highContrastFocus)) then ok = false
         m.registry.Flush()
         m.saveRefused = not ok
         return ok
@@ -175,5 +271,18 @@ class SettingsStore
         ' a value from a future version) leaves the default in place.
         if m.registry.Read("audioPassthrough") = "true" then m.audioPassthrough = true
         if m.registry.Read("audioTransmux") = "true" then m.audioTransmux = true
+        prefAudio = m.registry.Read("preferredAudioLanguage")
+        if m.registry.Exists("preferredAudioLanguage") then m.preferredAudioLanguage = prefAudio
+        prefSub = m.registry.Read("preferredSubtitleLanguage")
+        if m.registry.Exists("preferredSubtitleLanguage") then m.preferredSubtitleLanguage = prefSub
+        subsOn = m.registry.Read("subtitlesEnabled")
+        if subsOn = "false" then m.subtitlesEnabled = false
+        if subsOn = "true" then m.subtitlesEnabled = true
+        autoNext = m.registry.Read("autoplayNext")
+        if autoNext = "false" then m.autoplayNext = false
+        if autoNext = "true" then m.autoplayNext = true
+        if m.registry.Read("lightMode") = "true" then m.lightMode = true
+        if m.registry.Read("largeText") = "true" then m.largeText = true
+        if m.registry.Read("highContrastFocus") = "true" then m.highContrastFocus = true
     end sub
 end class

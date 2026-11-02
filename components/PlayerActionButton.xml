@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="PlayerActionButton" extends="Group">
+    <interface>
+        <field id="caption" type="string" onChange="UpdateLook" />
+        <field id="icon" type="string" onChange="UpdateLook" />
+        <field id="selected" type="boolean" onChange="UpdateLook" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/components/PlayerActionButton.brs" />
+    <children>
+        <Poster id="plate" uri="pkg:/images/player-circle.png" width="84" height="84" />
+        <Poster id="icon" translation="[15, 15]" width="54" height="54" />
+        <Label id="caption" translation="[114, 0]" width="630" height="84" vertAlign="center">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="30" />
+        </Label>
+    </children>
+</component>

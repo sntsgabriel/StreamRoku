@@ -8,6 +8,9 @@
 
 function MockRegistry() as object
     registry = { values: {}, failWrites: false }
+    registry.Exists = function(key as string) as boolean
+        return m.values.DoesExist(key)
+    end function
     registry.Read = function(key as string) as string
         if m.values[key] <> invalid then return m.values[key]
         return ""
@@ -20,6 +23,9 @@ function MockRegistry() as object
         if m.failWrites then return false
         m.values[key] = value
         return true
+    end function
+    registry.Delete = function(key as string) as boolean
+        return m.values.Delete(key)
     end function
     registry.Flush = function() as void
     end function

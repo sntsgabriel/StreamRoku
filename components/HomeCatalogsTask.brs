@@ -12,7 +12,7 @@ end sub
 
 sub load()
     try
-        http = Transport()
+        http = Transport(invalid, m.top.responseCache, m.top.cacheGeneration)
         catalog = CatalogStore(http)
         index = 0
 

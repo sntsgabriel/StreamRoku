@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="PlayerControls" extends="Group">
+    <interface>
+        <field id="words" type="assocarray" />
+        <field id="mediaTitle" type="string" />
+        <field id="episodeText" type="string" />
+        <field id="logo" type="string" />
+        <field id="position" type="float" onChange="UpdateProgress" />
+        <field id="duration" type="float" onChange="UpdateProgress" />
+        <field id="paused" type="boolean" />
+        <field id="action" type="string" alwaysNotify="true" />
+        <function name="Open" />
+        <function name="Dismiss" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/components/PlayerControls.brs" />
+    <script type="text/brightscript" uri="pkg:/source/util/PlayerControlsModel.brs" />
+    <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
+    <children>
+        <Poster id="vignette" uri="pkg:/images/player-vignette.png" width="1920" height="1080" />
+        <Group id="chrome">
+            <Label id="smallTitle" translation="[144, 69]" width="1320" height="57">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="36" />
+            </Label>
+            <Label id="smallEpisode" translation="[144, 132]" width="1320" height="45">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="26" />
+            </Label>
+            <Label id="stateLabel" translation="[1512, 78]" width="264" height="42" horizAlign="right">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
+            </Label>
+            <Group translation="[84, 276]">
+                <PlayerActionButton id="backAction" />
+                <PlayerActionButton id="captionsAction" translation="[0, 108]" />
+                <PlayerActionButton id="restartAction" translation="[0, 216]" />
+                <PlayerActionButton id="toggleAction" translation="[0, 324]" />
+            </Group>
+            <Group id="timeline" translation="[144, 906]">
+                <Label id="elapsed" translation="[0, 21]" width="120" height="48" font="font:SmallSystemFont" />
+                <Rectangle id="progressTrack" translation="[144, 45]" width="1296" height="4" />
+                <Rectangle id="progressFill" translation="[144, 45]" width="0" height="4" />
+                <Poster id="progressDot" uri="pkg:/images/player-circle.png" translation="[136, 39]" width="16" height="16" />
+                <Label id="total" translation="[1470, 21]" width="162" height="48" horizAlign="right" font="font:SmallSystemFont" />
+                <Label id="hint" translation="[144, 87]" width="1296" height="36">
+                    <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
+                </Label>
+            </Group>
+        </Group>
+        <Group id="details" visible="false" translation="[144, 330]">
+            <Label id="idleState" width="1000" height="42">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
+            </Label>
+            <Poster id="mediaLogo" translation="[0, 72]" width="780" height="195" loadDisplayMode="scaleToFit" />
+            <Label id="mediaTitle" translation="[0, 84]" width="1110" height="174" wrap="true">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="54" />
+            </Label>
+            <Label id="episode" translation="[0, 294]" width="1110" height="90" wrap="true">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="30" />
+            </Label>
+            <Label id="pausePrompt" translation="[0, 606]" width="1200" height="42">
+                <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
+            </Label>
+        </Group>
+        <Timer id="idleTimer" duration="1" repeat="true" />
+        <Timer id="hideTimer" duration="6" repeat="false" />
+    </children>
+</component>

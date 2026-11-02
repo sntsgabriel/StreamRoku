@@ -106,12 +106,31 @@ class SubtitlesStore
         return result
     end function
 
-    ' Index of the track to show by default: the one whose language starts with
-    ' the device locale's two-letter prefix, else an English track, else the
-    ' first track. -1 when there is nothing to pick from; a blank locale simply
-    ' skips the first pass.
-    function PickTrack(subtitles as object, locale as string) as integer
+    ' Index of the track to show by default: the one whose language matches
+    ' the requested locale/preferred language. When strictLanguage is true,
+    ' it differentiates pt-BR from generic pt, and returns -1 if no compatible
+    ' track is found (avoiding forcing an incorrect language).
+    function PickTrack(subtitles as object, locale as string, strictLanguage = false as boolean) as integer
         if subtitles = invalid or Type(subtitles) <> "roArray" then return -1
+        if subtitles.Count() = 0 then return -1
+
+        target = m.NormalizeLanguageCode(locale)
+
+        if strictLanguage
+            if target = "" then return -1
+            ' Pass 1: Exact normalized code match (e.g. pt-BR)
+            for i = 0 to subtitles.Count() - 1
+                if m.NormalizeLanguageCode(m.TrackLang(subtitles[i])) = target then return i
+            end for
+            ' Pass 2: If preferred is pt-BR and no pt-BR track exists, generic pt is compatible
+            if target = "pt-BR"
+                for i = 0 to subtitles.Count() - 1
+                    if m.NormalizeLanguageCode(m.TrackLang(subtitles[i])) = "pt" then return i
+                end for
+            end if
+            ' No compatible track found: return -1 to treat absent language cleanly
+            return -1
+        end if
 
         prefix = ""
         if locale <> invalid and locale.Trim() <> "" then prefix = LCase(locale.Trim().Left(2))
@@ -120,6 +139,18 @@ class SubtitlesStore
         if m.TrackMatchesLang(subtitles, "en") >= 0 then return m.TrackMatchesLang(subtitles, "en")
         if subtitles.Count() > 0 then return 0
         return -1
+    end function
+
+    function NormalizeLanguageCode(raw as dynamic) as string
+        if not m.HasText(raw) then return ""
+        code = LCase(raw.Trim()).Replace("_", "-")
+        aliases = { por: "pt", pob: "pt-BR", pb: "pt-BR", "pt-br": "pt-BR", eng: "en", spa: "es", fre: "fr", fra: "fr", ger: "de", deu: "de", ita: "it", jpn: "ja", kor: "ko", chi: "zh", zho: "zh", rus: "ru", ara: "ar", hin: "hi", hrv: "hr", dut: "nl", nld: "nl", rum: "ro", ron: "ro", slv: "sl" }
+        if aliases.DoesExist(code) then return aliases[code]
+        if code.Left(5) = "pt-br" then return "pt-BR"
+        if code.Left(2) = "pt" and (code.InStr("br") >= 0 or code.InStr("brazil") >= 0 or code.InStr("brasil") >= 0) then return "pt-BR"
+        if code.Left(2) = "pt" then return "pt"
+        if code.Len() >= 2 then return code.Left(2)
+        return code
     end function
 
     ' Index of the first track whose language code starts with code, or -1. A

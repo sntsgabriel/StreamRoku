@@ -28,6 +28,10 @@ class EpisodesStore
         end if
 
         url = m.transport.EndpointUrl(addonAddress, "/meta/" + metaType + "/" + id + ".json")
+        if m.transport.DoesExist("CacheRead")
+            cached = m.transport.CacheRead(url)
+            if cached <> invalid then return cached
+        end if
         response = m.transport.Get(url)
         if not response.ok or response.json = invalid
             result.error = response.error
@@ -57,6 +61,7 @@ class EpisodesStore
 
         result.meta = meta
         result.ok = true
+        if m.transport.DoesExist("CacheWrite") then m.transport.CacheWrite(url, result, 1800)
         return result
     end function
 
@@ -149,6 +154,76 @@ class EpisodesStore
     ' on the same string).
     function ResolveVideoId(seriesId as string, season as integer, episode as integer) as string
         return m.videoId.Build(seriesId, season, episode)
+    end function
+
+    ' Returns the next episode in sequence, respecting season ordering and
+    ' handling season / series boundaries.
+    ' Returns { found: boolean, season: integer, episode: integer, videoId: string, name: string, isNewSeason: boolean, isSeriesEnd: boolean, episodeData: object }
+    function NextEpisode(meta as object, currentSeason as integer, currentEpisode as integer) as object
+        result = { found: false, season: 0, episode: 0, videoId: "", name: "", isNewSeason: false, isSeriesEnd: false, episodeData: invalid }
+        if meta = invalid or meta.videos = invalid then return result
+
+        seriesId = ""
+        if meta.id <> invalid then seriesId = meta.id
+
+        ' Find all episodes in current season with episode > currentEpisode
+        curSeasonEpisodes = m.EpisodesForSeason(meta, currentSeason)
+        nextInSeason = invalid
+        for each ep in curSeasonEpisodes
+            if ep.episode <> invalid and ep.episode > currentEpisode
+                if nextInSeason = invalid or ep.episode < nextInSeason.episode
+                    nextInSeason = ep
+                end if
+            end if
+        end for
+
+        if nextInSeason <> invalid
+            result.found = true
+            result.season = currentSeason
+            result.episode = nextInSeason.episode
+            result.videoId = m.ResolveVideoId(seriesId, currentSeason, nextInSeason.episode)
+            if nextInSeason.name <> invalid then result.name = nextInSeason.name
+            result.episodeData = nextInSeason
+            return result
+        end if
+
+        ' No more episodes in current season: check ordered seasons for the next season
+        allSeasons = m.Seasons(meta)
+        ordered = m.OrderedSeasons(allSeasons)
+        currentSeasonIdx = -1
+        for i = 0 to ordered.Count() - 1
+            if ordered[i] = currentSeason then currentSeasonIdx = i
+        end for
+
+        if currentSeasonIdx >= 0 and currentSeasonIdx < ordered.Count() - 1
+            for nextIdx = currentSeasonIdx + 1 to ordered.Count() - 1
+                nextSeasonNum = ordered[nextIdx]
+                if nextSeasonNum = 0 then continue for ' Skip specials
+                nextSeasonEps = m.EpisodesForSeason(meta, nextSeasonNum)
+                firstEp = invalid
+                for each ep in nextSeasonEps
+                    if ep.episode <> invalid
+                        if firstEp = invalid or ep.episode < firstEp.episode
+                            firstEp = ep
+                        end if
+                    end if
+                end for
+                if firstEp <> invalid
+                    result.found = true
+                    result.season = nextSeasonNum
+                    result.episode = firstEp.episode
+                    result.videoId = m.ResolveVideoId(seriesId, nextSeasonNum, firstEp.episode)
+                    if firstEp.name <> invalid then result.name = firstEp.name
+                    result.isNewSeason = true
+                    result.episodeData = firstEp
+                    return result
+                end if
+            end for
+        end if
+
+        ' No more seasons or episodes: end of series!
+        result.isSeriesEnd = true
+        return result
     end function
 
     ' Real seasons keep ascending order; season 0 (specials) is pushed to the

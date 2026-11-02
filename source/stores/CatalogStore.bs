@@ -1,6 +1,6 @@
 ' CatalogStore — on-demand catalog, manifest and search against an add-on
-' server. Pure transport, no state: nothing is saved, every call hits the
-' add-on's HTTP API (Cinemeta and friends). Search is the add-on's search
+' server. Validated catalog results can use Transport's bounded session cache.
+' Manifests always use the network. Search is the add-on's search
 ' catalog for one type: /catalog/{type}/top/search={query}.json.
 
 class CatalogStore
@@ -81,6 +81,10 @@ class CatalogStore
         end if
 
         url = m.transport.EndpointUrl(addonAddress, "/catalog/" + metaType + "/" + catalogId + "/" + extra + ".json")
+        if m.transport.DoesExist("CacheRead")
+            cached = m.transport.CacheRead(url)
+            if cached <> invalid then return cached
+        end if
         response = m.transport.Get(url)
 
         ' Cinemeta's CDN sometimes wraps a real payload in a gateway status
@@ -113,6 +117,11 @@ class CatalogStore
         ' to mishandle (it IS a comparison), so state it plainly.
         result.hasMore = (response.json.hasMore = true)
         result.ok = true
+        if response.ok and m.transport.DoesExist("CacheWrite")
+            ttl = 300
+            if extra.Left(7) = "search=" then ttl = 60
+            m.transport.CacheWrite(url, result, ttl)
+        end if
         return result
     end function
 
@@ -122,7 +131,7 @@ class CatalogStore
     ' "search=" as the extra segment — so the query is percent-encoded before it
     ' becomes a URL path segment. The catalog id defaults to "top" for the
     ' Cinemeta shape but is a caller argument because a search fan-out now asks
-    ' each search-capable catalog the same query. Nothing is stored locally.
+    ' each search-capable catalog the same query. Successful search results expire after one minute.
     function Search(addonAddress as string, metaType as string, query as string, catalogId = "top" as string) as object
         return m.Catalog(addonAddress, metaType, catalogId, "search=" + m.transport.EncodeQueryValue(query))
     end function

@@ -249,6 +249,11 @@ function EpisodesSeasons(meta as object) as object
     return m.stores.episodes.Seasons(meta)
 end function
 
+' episodes.NextEpisode
+function EpisodesNextEpisode(meta as object, currentSeason as integer, currentEpisode as integer) as object
+    return m.stores.episodes.NextEpisode(meta, currentSeason, currentEpisode)
+end function
+
 ' library.AddSaved
 function LibraryAddSaved(metaId as string, metaType as string, name as string, poster = "" as string, posterShape = "" as string) as boolean
     return m.stores.library.AddSaved(metaId, metaType, name, poster, posterShape)
@@ -415,6 +420,76 @@ end function
 ' settings.SetServerAddress
 function SettingsSetServerAddress(url as string) as boolean
     return m.stores.settings.SetServerAddress(url)
+end function
+
+' settings.GetPreferredAudioLanguage
+function SettingsGetPreferredAudioLanguage() as string
+    return m.stores.settings.GetPreferredAudioLanguage()
+end function
+
+' settings.SetPreferredAudioLanguage
+function SettingsSetPreferredAudioLanguage(value as string) as boolean
+    return m.stores.settings.SetPreferredAudioLanguage(value)
+end function
+
+' settings.GetPreferredSubtitleLanguage
+function SettingsGetPreferredSubtitleLanguage() as string
+    return m.stores.settings.GetPreferredSubtitleLanguage()
+end function
+
+' settings.SetPreferredSubtitleLanguage
+function SettingsSetPreferredSubtitleLanguage(value as string) as boolean
+    return m.stores.settings.SetPreferredSubtitleLanguage(value)
+end function
+
+' settings.GetSubtitlesEnabled
+function SettingsGetSubtitlesEnabled() as boolean
+    return m.stores.settings.GetSubtitlesEnabled()
+end function
+
+' settings.SetSubtitlesEnabled
+function SettingsSetSubtitlesEnabled(value as boolean) as boolean
+    return m.stores.settings.SetSubtitlesEnabled(value)
+end function
+
+' settings.GetAutoplayNext
+function SettingsGetAutoplayNext() as boolean
+    return m.stores.settings.GetAutoplayNext()
+end function
+
+' settings.SetAutoplayNext
+function SettingsSetAutoplayNext(value as boolean) as boolean
+    return m.stores.settings.SetAutoplayNext(value)
+end function
+
+' settings.GetLightMode
+function SettingsGetLightMode() as boolean
+    return m.stores.settings.GetLightMode()
+end function
+
+' settings.SetLightMode
+function SettingsSetLightMode(value as boolean) as boolean
+    return m.stores.settings.SetLightMode(value)
+end function
+
+' settings.GetLargeText
+function SettingsGetLargeText() as boolean
+    return m.stores.settings.GetLargeText()
+end function
+
+' settings.SetLargeText
+function SettingsSetLargeText(value as boolean) as boolean
+    return m.stores.settings.SetLargeText(value)
+end function
+
+' settings.GetHighContrastFocus
+function SettingsGetHighContrastFocus() as boolean
+    return m.stores.settings.GetHighContrastFocus()
+end function
+
+' settings.SetHighContrastFocus
+function SettingsSetHighContrastFocus(value as boolean) as boolean
+    return m.stores.settings.SetHighContrastFocus(value)
 end function
 
 ' texts.ForLanguage — one language's whole slice of the UI-text table. The

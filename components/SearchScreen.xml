@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="SearchScreen" extends="Screen">
-    <!-- Inline keyboard keeps live results visible while entering a title. -->
+    <!-- YouTube-style TV layout: top search bar, left history & suggestions,
+         compact keyboard on the right, and recommended / live results below. -->
     <interface>
         <!-- The one action Search reports upward: a push request. -->
         <field id="pushRequest" type="assocarray" alwaysNotify="true" />
@@ -16,45 +17,86 @@
     <script type="text/brightscript" uri="pkg:/source/core/AsyncTask.bs" />
     <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
     <script type="text/brightscript" uri="pkg:/source/core/TileSize.bs" />
+    <script type="text/brightscript" uri="pkg:/source/stores/SearchHistoryStore.bs" />
+    <script type="text/brightscript" uri="pkg:/source/util/UiLayout.brs" />
 
     <children>
-        <Rectangle id="searchBg" width="1920" height="1080" color="0x0" />
+        <Rectangle id="searchBg" width="1920" height="1080" color="0x0E1110FF" />
+
+        <!-- Wide Top Search Bar (YouTube TV style) -->
+        <Group id="searchBarGroup" translation="[136, 32]">
+            <Rectangle id="searchBarBg" width="1648" height="52" color="0x181D1AFF" />
+            <Label id="searchBarIcon" translation="[18, 10]" width="32" height="32" text="⌕" font="font:MediumBoldSystemFont" />
+            <Label id="searchQueryDisplay" translation="[58, 10]" width="1560" height="32" text="Pesquisar" font="font:MediumSystemFont" />
+        </Group>
+
         <Label
             id="searchTitle"
-            translation="[150, 48]"
-            width="1760"
-            height="70"
+            translation="[136, 32]"
+            width="10"
+            height="10"
             text="Search"
-            font="font:LargeBoldSystemFont" />
+            visible="false" />
         <Label
             id="searchSub"
-            translation="[150, 128]"
-            width="1760"
-            height="40"
-            text="Type a title, then OK · * to search again · Back to exit"
-            font="font:SmallSystemFont" />
+            translation="[136, 32]"
+            width="10"
+            height="10"
+            text=""
+            visible="false" />
 
-        <Label
-            id="searchStatus"
-            translation="[150, 180]"
-            width="1760"
-            height="40"
-            font="font:SmallSystemFont" />
+        <!-- Left column: History and suggestions -->
+        <Group id="historyGroup" translation="[136, 104]" visible="false">
+            <Label
+                id="historyTitle"
+                width="560"
+                height="40"
+                font="font:MediumBoldSystemFont" />
+            <LabelList
+                id="historyList"
+                translation="[0, 48]"
+                itemSize="[560, 48]"
+                numRows="6"
+                vertFocusAnimationStyle="fixedFocus" />
+            <Button
+                id="clearHistoryBtn"
+                translation="[0, 350]"
+                minWidth="260"
+                maxWidth="275" />
+            <Button
+                id="removeHistoryBtn"
+                translation="[285, 350]"
+                minWidth="260"
+                maxWidth="275" />
+        </Group>
 
-        <DynamicKeyboard id="liveKeyboard" translation="[80, 245]" scale="[0.7, 0.7]" domain="generic" />
-        <Button id="showResults" translation="[80, 880]" minWidth="480" maxWidth="700" />
+        <!-- Right column: Compact keyboard in guarded viewport -->
+        <Group id="keyboardViewport" translation="[740, 104]" clippingRect="[0, 0, 760, 580]">
+            <DynamicKeyboard id="liveKeyboard" scale="[0.5, 0.5]" domain="generic" />
+        </Group>
+        <Timer id="keyboardLayoutTimer" duration="0.1" repeat="false" />
+        <Button id="showResults" translation="[740, 590]" minWidth="360" maxWidth="480" />
+        <Button id="retrySearchBtn" translation="[1130, 590]" minWidth="240" maxWidth="360" visible="false" />
+        <Label id="searchStatus" translation="[740, 642]" width="760" height="36" font="font:SmallSystemFont" />
         <Timer id="searchDebounce" duration="0.6" repeat="false" />
 
-        <!-- Results grid: poster rows, one per catalog that returned results.
-             numRows is set from m.rows; a catalog with no matches gets no row,
-             so the grid can start empty and fill in as add-ons answer. -->
+        <!-- Bottom row: Results / Recommendations section -->
+        <Label
+            id="resultsHeader"
+            translation="[136, 650]"
+            width="1648"
+            height="32"
+            font="font:MediumBoldSystemFont" />
+
+        <!-- Results grid: poster rows, one per catalog that returned results. -->
         <RowList
             id="searchResults"
-            translation="[900, 245]"
-            numRows="2"
-            itemSize="[920, 405]"
-            itemSpacing="[0, 66]"
-            rowItemSize="[[270, 405]]"
+            clippingRect="[-8, -8, 1664, 400]"
+            translation="[136, 688]"
+            numRows="1"
+            itemSize="[1648, 360]"
+            itemSpacing="[0, 40]"
+            rowItemSize="[[240, 360]]"
             rowItemSpacing="[[18, 0]]"
             showRowLabel="[true]"
             rowLabelOffset="[0, 10]"

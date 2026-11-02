@@ -18,23 +18,39 @@
     <script type="text/brightscript" uri="pkg:/source/util/TrackPanelModel.brs" />
     <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
     <children>
-        <Rectangle id="shade" width="1920" height="1080" />
-        <Group translation="[80, 250]">
-            <Rectangle id="card" width="1760" height="750" />
-            <Label id="title" translation="[50, 28]" width="1300" height="50" font="font:LargeBoldSystemFont" />
-            <Button id="subTab" translation="[50, 100]" minWidth="280" maxWidth="280" />
-            <Button id="audioTab" translation="[350, 100]" minWidth="280" maxWidth="280" />
-            <Button id="close" translation="[1440, 28]" minWidth="270" maxWidth="270" />
-            <Label id="languageHeading" translation="[50, 185]" width="370" height="45" font="font:MediumBoldSystemFont" />
-            <Label id="trackHeading" translation="[470, 185]" width="920" height="45" font="font:MediumBoldSystemFont" />
-            <Label id="detailHeading" translation="[1440, 185]" width="270" height="45" font="font:MediumBoldSystemFont" />
-            <LabelList id="languages" translation="[50, 240]" itemSize="[370, 64]" numRows="6" font="font:SmallSystemFont" focusedFont="font:SmallBoldSystemFont" />
-            <LabelList id="tracks" translation="[470, 240]" itemSize="[920, 64]" numRows="6" font="font:SmallSystemFont" focusedFont="font:SmallBoldSystemFont" />
-            <Label id="details" translation="[1440, 240]" width="270" height="380" wrap="true" font="font:SmallSystemFont" />
-            <Label id="empty" translation="[470, 300]" width="920" height="180" wrap="true" font="font:MediumSystemFont" visible="false" />
-            <Button id="off" translation="[50, 645]" minWidth="320" maxWidth="320" />
-            <Button id="on" translation="[390, 645]" minWidth="320" maxWidth="320" />
-            <Label id="hint" translation="[760, 655]" width="960" height="65" wrap="true" font="font:SmallSystemFont" />
-        </Group>
+        <Rectangle id="card" translation="[1248, 0]" width="672" height="1080" />
+        <Label id="panelHeading" translation="[1302, 57]" width="552" height="54">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="32" />
+        </Label>
+        <Label id="subtitleHeading" translation="[1278, 159]" width="270" height="54" horizAlign="center">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="26" />
+        </Label>
+        <Label id="audioHeading" translation="[1572, 159]" width="270" height="54" horizAlign="center">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="26" />
+        </Label>
+        <Rectangle id="subtitleUnderline" translation="[1302, 225]" width="222" height="3" color="0xFFFFFFFF" />
+        <Rectangle id="audioUnderline" translation="[1596, 225]" width="222" height="3" color="0xFFFFFFFF" visible="false" />
+        <MarkupList id="subtitles" translation="[1278, 276]" itemSize="[564, 60]" itemSpacing="[0, 0]" numRows="10"
+            itemComponentName="MediaChoiceRow" drawFocusFeedback="false" vertFocusAnimationStyle="floatingFocus" />
+        <MarkupList id="audio" translation="[1278, 276]" itemSize="[564, 60]" itemSpacing="[0, 0]" numRows="10" visible="false"
+            itemComponentName="MediaChoiceRow" drawFocusFeedback="false" vertFocusAnimationStyle="floatingFocus" />
+        <Label id="subtitleEmpty" translation="[1302, 360]" width="510" height="132" wrap="true">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
+        </Label>
+        <Label id="audioEmpty" translation="[1302, 288]" width="510" height="132" wrap="true" visible="false">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
+        </Label>
+        <Label id="subtitleCount" translation="[1704, 915]" width="132" height="45" horizAlign="right">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
+        </Label>
+        <Label id="audioCount" translation="[1704, 915]" width="132" height="45" horizAlign="right" visible="false">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
+        </Label>
+        <Label id="tabHint" translation="[1302, 951]" width="540" height="36">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
+        </Label>
+        <Label id="hint" translation="[1302, 1002]" width="540" height="42">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
+        </Label>
     </children>
 </component>

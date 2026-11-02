@@ -51,6 +51,13 @@ sub init()
     m.status.color = t.accent
     m.providerName.color = t.textPrimary
     m.streamsPlaceholder.color = t.textSecondary
+    m.filterStatus = m.top.FindNode("filterStatus")
+    m.clearFilterBtn = m.top.FindNode("clearFilterBtn")
+    if m.clearFilterBtn <> invalid then m.clearFilterBtn.ObserveField("buttonSelected", "ClearStreamFilters")
+    if m.filterStatus <> invalid then m.filterStatus.color = t.textSecondary
+    m.filterRes = "all"
+    m.filterLang = "all"
+    m.filterFmt = "all"
 
     m.streamsList.ObserveField("rowItemSelected", "onStreamSelected")
 
@@ -482,10 +489,25 @@ end function
 sub RenderActiveProvider()
     if m.providers = invalid or m.activeIndex < 0 or m.activeIndex >= m.providers.Count() then return
     provider = m.providers[m.activeIndex]
-    m.streams = provider.streams
+    rawStreams = provider.streams
+    if rawStreams = invalid then rawStreams = []
+    m.streams = FilterStreamList(rawStreams, m.filterRes, m.filterLang, m.filterFmt, Lang("common", "unknown"))
+
+    if m.clearFilterBtn <> invalid then m.clearFilterBtn.visible = false
+    UpdateFilterStatusLabel()
 
     if m.streams.Count() = 0
         EmptyStreamsList()
+        if rawStreams.Count() > 0 and (m.filterRes <> "all" or m.filterLang <> "all" or m.filterFmt <> "all")
+            m.streamsPlaceholder.text = Lang("streams", "filtersHideAll")
+            m.streamsPlaceholder.visible = true
+            if m.clearFilterBtn <> invalid
+                m.clearFilterBtn.text = Lang("streams", "clearFilters")
+                m.clearFilterBtn.visible = true
+                if m.top.screenActive then m.clearFilterBtn.SetFocus(true)
+            end if
+            return
+        end if
         label = ProviderEmptyLabel()
         if label = ""
             m.streamsPlaceholder.visible = false
@@ -521,6 +543,38 @@ sub RenderActiveProvider()
         m.listFilled = true
         m.streamsList.jumpToRowItem = [0, 0]
         if m.top.screenActive then m.streamsList.SetFocus(true)
+    end if
+end sub
+
+sub ClearStreamFilters()
+    m.filterRes = "all"
+    m.filterLang = "all"
+    m.filterFmt = "all"
+    RenderActiveProvider()
+    if m.streamsList <> invalid and m.streams.Count() > 0
+        m.streamsList.SetFocus(true)
+    end if
+end sub
+
+sub CycleStreamFilters()
+    resOptions = ["all", "4K", "1080p", "720p"]
+    currIdx = 0
+    for i = 0 to resOptions.Count() - 1
+        if resOptions[i] = m.filterRes then currIdx = i
+    end for
+    nextIdx = (currIdx + 1) mod resOptions.Count()
+    m.filterRes = resOptions[nextIdx]
+    RenderActiveProvider()
+end sub
+
+sub UpdateFilterStatusLabel()
+    if m.filterStatus = invalid then return
+    if m.filterRes = "all" and m.filterLang = "all" and m.filterFmt = "all"
+        m.filterStatus.text = Lang("streams", "filterHint")
+    else
+        resLabel = m.filterRes
+        if resLabel = "all" then resLabel = Lang("common", "all")
+        m.filterStatus.text = Fill(Lang("streams", "activeFilter"), { res: resLabel })
     end if
 end sub
 
@@ -670,10 +724,14 @@ sub onStreamSelected()
             season: m.params.season
             episode: m.params.episode
             position: m.params.position
+            episodeName: m.params.episodeName
             name: m.headTitle.text
             poster: m.params.poster
             posterShape: m.params.posterShape
             logo: m.params.logo
+            background: m.params.background
+            addonAddress: m.params.addonAddress
+            meta: m.params.meta
         }
     }
 end sub
@@ -733,6 +791,10 @@ function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
     if key = "replay" and m.pendingCount = 0 and m.params <> invalid
         OnEnter(m.params)
+        return true
+    end if
+    if key = "options"
+        CycleStreamFilters()
         return true
     end if
     if m.providers = invalid or m.activeIndex < 0 then return false

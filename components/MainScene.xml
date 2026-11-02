@@ -68,6 +68,7 @@
     <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
 
     <children>
+        <ResponseCache id="responseCache" />
         <Group id="uiRoot">
             <!-- Everything inside uiRoot is authored in 1920x1080 design space.
                  Screens are children of uiRoot; the stack shows one at a time. -->

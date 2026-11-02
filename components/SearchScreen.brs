@@ -1,18 +1,31 @@
-' SearchScreen — inline keyboard and live results from installed search providers.
-' A 600ms debounce avoids a request per keystroke; each edit invalidates the
-' previous generation. Two providers run at a time and results never steal
-' keyboard focus. Source discovery still happens off the render thread.
+' SearchScreen — YouTube TV-style inline search interface with live results.
+' Top wide search bar displays current query or placeholder.
+' Left column provides search history and suggestions.
+' Right column embeds compact DynamicKeyboard in a guarded viewport.
+' Bottom area displays recommended content or live multi-catalog search results.
+' Loading, connection error, and empty states are strictly separated.
+' Connection failures provide a "Try again" action while preserving the query.
 
 sub init()
     m.status = m.top.FindNode("searchStatus")
     m.results = m.top.FindNode("searchResults")
+    m.resultsHeader = m.top.FindNode("resultsHeader")
+    m.searchQueryDisplay = m.top.FindNode("searchQueryDisplay")
+    m.retrySearchBtn = m.top.FindNode("retrySearchBtn")
 
     t = Theme()
     m.top.FindNode("searchTitle").color = t.accent
     m.top.FindNode("searchSub").color = t.textSecondary
     m.status.color = t.accent
-    m.results.rowLabelOffset = [0,10]
-    m.results.focusBitmapBlendColor = t.accent
+    m.results.rowLabelOffset = [0, 10]
+    m.results.focusBitmapBlendColor = t.accentFocus
+
+    searchBarBg = m.top.FindNode("searchBarBg")
+    if searchBarBg <> invalid then searchBarBg.color = t.railTint
+    searchBarIcon = m.top.FindNode("searchBarIcon")
+    if searchBarIcon <> invalid then searchBarIcon.color = t.accent
+    if m.resultsHeader <> invalid then m.resultsHeader.color = t.textPrimary
+    if m.searchQueryDisplay <> invalid then m.searchQueryDisplay.color = &h888888FF
 
     m.results.ObserveField("rowItemSelected", "onResultSelected")
 
@@ -31,52 +44,80 @@ sub init()
     m.keyboard = m.top.FindNode("liveKeyboard")
     m.resultsButton = m.top.FindNode("showResults")
     m.debounce = m.top.FindNode("searchDebounce")
+    m.keyboardLayoutTimer = m.top.FindNode("keyboardLayoutTimer")
+    m.keyboardLayoutAttempts = 0
+    m.keyboardLayoutTimer.ObserveField("fire", "FitSearchKeyboard")
+    m.keyboard.ObserveField("focusedChild", "ScheduleKeyboardLayout")
     m.keyboard.ObserveField("text", "onQueryChanged")
     m.resultsButton.ObserveField("buttonSelected", "onShowResults")
     m.debounce.ObserveField("fire", "onSearchDebounce")
+    if m.retrySearchBtn <> invalid then m.retrySearchBtn.ObserveField("buttonSelected", "onRetrySearch")
+
+    m.historyStore = SearchHistoryStore(CreateObject("roRegistrySection", "search_history"), 10)
+    m.historyGroup = m.top.FindNode("historyGroup")
+    m.historyTitle = m.top.FindNode("historyTitle")
+    m.historyList = m.top.FindNode("historyList")
+    m.clearHistoryBtn = m.top.FindNode("clearHistoryBtn")
+    m.removeHistoryBtn = m.top.FindNode("removeHistoryBtn")
+    if m.historyList <> invalid then m.historyList.ObserveField("itemSelected", "onHistorySelected")
+    if m.clearHistoryBtn <> invalid then m.clearHistoryBtn.ObserveField("buttonSelected", "onClearHistory")
+    if m.removeHistoryBtn <> invalid then m.removeHistoryBtn.ObserveField("buttonSelected", "onRemoveHistoryItem")
+    if m.historyTitle <> invalid then m.historyTitle.color = t.accent
+    if m.historyList <> invalid then
+        m.historyList.color = t.textPrimary
+        m.historyList.focusedColor = t.textWhite
+        m.historyList.focusBitmapBlendColor = t.accentFocus
+    end if
 end sub
 
 function OnEnter(params as object) as void
-    ' The language first, then the title and the subtitle (the markup holds
-    ' the English default; the table decides what is shown).
     RefreshTexts()
+    ScheduleKeyboardLayout()
     m.top.FindNode("searchTitle").text = Lang("search", "title")
     m.top.FindNode("searchSub").text = Lang("search", "liveHint")
     m.resultsButton.text = Lang("search", "showResults")
-    ' The add-on set can move while Search is off-screen (install/uninstall,
-    ' session swap). Re-derive when it did, so the rows never describe a
-    ' registry that no longer exists.
+    if m.retrySearchBtn <> invalid then m.retrySearchBtn.text = Lang("search", "retry")
+    if m.resultsHeader <> invalid then
+        if m.keyboard <> invalid and m.keyboard.text.Trim().Len() >= 2
+            m.resultsHeader.text = Lang("search", "searchResults")
+        else
+            m.resultsHeader.text = Lang("search", "recommended")
+        end if
+    end if
+
+    UpdateQueryDisplay()
+
     if m.stores <> invalid and CatalogSignature() <> m.sourcesSignature then ResetSearch()
 
-    ' A caller-supplied query (future rail-injected) runs as soon as sources are
-    ' in hand; it is held in m.pendingQuery until they land.
     if params <> invalid and params.query <> invalid and params.query <> ""
         m.pendingQuery = params.query
         EnsureSources()
         return
     end if
 
-    ' Re-entry after Details: results are still here, just take focus back.
     if m.rows.Count() > 0
         m.results.SetFocus(true)
         return
     end if
 
+    if m.historyTitle <> invalid then m.historyTitle.text = Lang("search", "recentSearches")
+    if m.clearHistoryBtn <> invalid then m.clearHistoryBtn.text = Lang("search", "clearHistory")
+    if m.removeHistoryBtn <> invalid then m.removeHistoryBtn.text = Lang("search", "removeSelected")
     EnsureSources()
     ShowSearchDialog()
+    if m.keyboard <> invalid and m.keyboard.text.Trim().Len() < 2 then ShowHistory()
 end function
 
 function OnExit() as void
+    m.keyboardLayoutTimer.control = "stop"
     m.debounce.control = "stop"
-    ' Any query held while sources were still resolving is dropped with the
-    ' exit — a later re-entry shows a fresh prompt, it must not replay it.
     m.pendingQuery = ""
     CancelSearch()
     CancelSources()
 end function
 
 function OnBackPressed() as boolean
-    if m.results.HasFocus() or m.resultsButton.HasFocus()
+    if m.results.HasFocus() or m.resultsButton.HasFocus() or (m.retrySearchBtn <> invalid and m.retrySearchBtn.HasFocus()) or (m.historyGroup <> invalid and (m.historyList.HasFocus() or m.clearHistoryBtn.HasFocus() or m.removeHistoryBtn.HasFocus()))
         m.keyboard.SetFocus(true)
         return true
     end if
@@ -84,15 +125,10 @@ function OnBackPressed() as boolean
 end function
 
 sub BlurFocus()
+    m.keyboardLayoutTimer.control = "stop"
     m.debounce.control = "stop"
 end sub
 
-' --- sources (which add-ons serve which catalogs) ---------------------------
-
-' The installed add-on set the current sources were derived from, as a
-' comparable string. Mirrors Home/Discover: derive from live store state, sort
-' so ordering cannot make two equal sets look different, join. No network — a
-' set comparison, not a re-derivation.
 function CatalogSignature() as string
     if m.stores = invalid then return ""
     addons = m.stores.addons.callFunc("AddonsGetAll")
@@ -105,11 +141,6 @@ function CatalogSignature() as string
     return parts.Join(";")
 end function
 
-' Resolve the catalog sources, reusing the cache when the installed set is
-' unchanged. When every add-on already carries its catalog descriptors the
-' sources are built inline; otherwise a CatalogSourcesTask fetches the missing
-' manifests off the UI thread (the built-in seeds are the only packets that
-' need it).
 sub EnsureSources()
     if m.stores = invalid
         m.status.text = Lang("search", "loadFailedAddons")
@@ -160,9 +191,6 @@ sub EnsureSources()
     m.sourcesTask = task
 end sub
 
-' A CatalogSourcesTask result landed. Dropped when it arrived after a cancel
-' (m.sourcesTask was cleared) so a late manifest can never repaint a screen the
-' user already left.
 sub onSourcesLoaded()
     if m.sourcesTask = invalid then return
     task = m.sourcesTask
@@ -187,8 +215,6 @@ sub CancelSources()
     end if
 end sub
 
-' A query that arrived before sources landed: run it now that they have. Nothing
-' to do for a plain entry (no pending query).
 sub FlushPendingQuery()
     if m.pendingQuery <> invalid and m.pendingQuery <> "" then
         query = m.pendingQuery
@@ -197,8 +223,6 @@ sub FlushPendingQuery()
     end if
 end sub
 
-' Drop the sources/rows/results for a changed add-on set so the next entry
-' re-resolves from scratch.
 sub ResetSearch()
     CancelSearch()
     CancelSources()
@@ -220,27 +244,44 @@ sub ClearResults()
     end if
 end sub
 
-' The query prompt. Starts empty, so each search is a fresh prompt rather than an
-' edit of the last one.
 sub ShowSearchDialog()
     ApplySearchKeyboard(m.keyboard)
     m.keyboard.SetFocus(true)
-    if m.keyboard.text.Trim().Len() < 2 then m.status.text = Lang("search", "minChars")
+    if m.keyboard.text.Trim().Len() < 2
+        m.status.text = Lang("search", "minChars")
+    else if m.searchTasks = invalid
+        m.debounce.control = "start"
+    end if
 end sub
 
-' Invalidate the previous batch immediately, not when the next timer fires.
-' This prevents a slow provider from painting results for a previous prefix.
 sub onQueryChanged()
+    if m.keyboardLayoutTimer <> invalid then ScheduleKeyboardLayout()
     m.debounce.control = "stop"
+    query = m.keyboard.text.Trim()
+    if m.searchQueryDisplay <> invalid
+        if query <> ""
+            m.searchQueryDisplay.text = query
+            m.searchQueryDisplay.color = &hFFFFFFFF
+        else
+            m.searchQueryDisplay.text = Lang("search", "placeholder")
+            m.searchQueryDisplay.color = &h888888FF
+        end if
+    end if
+    if query = m.lastQuery and m.searchTasks <> invalid then return
     CancelSearch()
     m.pendingQuery = ""
     m.rows = []
     ClearResults()
-    query = m.keyboard.text.Trim()
     if query.Len() < 2
         m.status.text = Lang("search", "minChars")
+        if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
+        if m.resultsHeader <> invalid then m.resultsHeader.text = Lang("search", "recommended")
+        if m.historyGroup <> invalid then ShowHistory()
         return
     end if
+    if m.historyGroup <> invalid then HideHistory()
+    if m.resultsHeader <> invalid then m.resultsHeader.text = Lang("search", "searchResults")
+    if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
     m.status.text = Lang("search", "searching")
     m.debounce.control = "start"
 end sub
@@ -248,53 +289,42 @@ end sub
 sub onSearchDebounce()
     if not m.top.screenActive then return
     query = m.keyboard.text.Trim()
-    if query.Len() >= 2 then RunSearch(query)
+    if query.Len() >= 2
+        if query = m.lastQuery and m.searchTasks <> invalid then return
+        RunSearch(query)
+    end if
 end sub
 
 sub onShowResults()
-    if m.rows.Count() > 0 then m.results.SetFocus(true)
+    if m.historyGroup <> invalid and m.historyGroup.visible
+        items = m.historyStore.GetAll()
+        if items.Count() > 0 then m.historyList.SetFocus(true)
+    else if m.rows.Count() > 0
+        RememberCompletedSearch()
+        m.results.SetFocus(true)
+    end if
 end sub
 
-' Configures the dialog's internal VoiceTextEditBox, which StandardKeyboardDialog
-' builds for itself and which is therefore reached through the dialog rather than
-' owned here. The box exists as soon as the node is created — confirmed on
-' device, where it is already a roSGNode:VoiceTextEditBox before the dialog is
-' ever displayed — so this is called inline and needs nothing to wait for.
-'
-' No try, deliberately. A throw here prints the offending field and line to the
-' device console, and the console is where this is read. The previous version
-' swallowed the error, which is how a caret fix that never took became
-' indistinguishable from one that did.
+sub RememberCompletedSearch()
+    if m.historyStore <> invalid and m.lastQuery <> "" then m.historyStore.Add(m.lastQuery)
+end sub
+
 sub ApplySearchKeyboard(dialog as object) as void
     if dialog = invalid then return
     editor = dialog.textEditBox
     if editor = invalid then return
 
-    ' Full word input, and the reason voice stopped being letter-by-letter:
-    ' DynamicKeyboard builds its internal edit box with voiceEntryType
-    ' "alphanumeric", meant for street addresses, and that beats the node class
-    ' default of "generic". The dialog's own keyboardDomain defaults to
-    ' "generic" too but does not reach this field. VERIFIED WORKING on device.
     editor.voiceEntryType = "generic"
-    ' Caret after the text rather than at 0. A caret parked at 0 makes backspace
-    ' and the left arrow no-ops by definition while typing still appends, which
-    ' from the outside is indistinguishable from a dead keyboard.
     editor.cursorPosition = Len(dialog.text)
 end sub
 
-' Kick the query off the render thread against every search-capable catalog
-' across the resolved sources. One SearchLoaderTask per add-on runs in parallel,
-' each carrying that add-on's catalogs. No rows are premised: the grid stays
-' empty until a catalog answers with results, and each row is then inserted in
-' the catalog's discovery order.
 sub RunSearch(query as string)
+    if m.historyGroup <> invalid then HideHistory()
     if query = "" then
         m.status.text = Lang("search", "typeNothing")
         return
     end if
 
-    ' Sources still resolving (a task is in flight): hold the query until they
-    ' land, then run against whatever arrived.
     if m.sources = invalid or m.sources.Count() = 0
         if m.sourcesTask <> invalid
             m.pendingQuery = query
@@ -327,16 +357,12 @@ sub RunSearch(query as string)
     m.rows = []
     m.searchTasks = {}
     m.status.text = Lang("search", "searching")
+    if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
     ClearResults()
 
     LaunchSearchTasks()
 end sub
 
-' The ordered list of searchable catalogs across all sources: one entry per
-' search-capable catalog, in addon/manifest order. Title is always
-' "{Catalog} - {mediaType}"; when two entries would still carry the same title
-' (same catalog name, same media type, different add-ons) the add-on's name is
-' prefixed so the rows stay distinguishable.
 function SearchCandidates() as object
     candidates = []
     if m.stores = invalid then return candidates
@@ -379,22 +405,15 @@ function SearchCandidates() as object
     return candidates
 end function
 
-' The media type half of a search row title ("Popular - Movies"). movie/series
-' read as "Movies"/"Series"; channel and tv are one family spelled "Tv channel";
-' anything else keeps its declared name capitalized.
 function TypeSearchLabel(raw as dynamic) as string
     if raw = invalid then return ""
     if raw = "movie" then return Lang("common", "movies")
     if raw = "series" then return Lang("common", "series")
     if raw = "channel" or raw = "tv" then return Lang("search", "tvChannel")
     if raw = "" then return ""
-    ' UCase is a global function, not an roString method; the chained form threw
-    ' &hf4 the first time an add-on declared a custom catalog type.
     return UCase(raw.Left(1)) + raw.Mid(1)
 end function
 
-' One SearchLoaderTask per add-on, passing the catalogs that add-on serves.
-' Tasks are independent, so their completion order does not matter.
 sub LaunchSearchTasks()
     byAddon = {}
     order = []
@@ -418,14 +437,17 @@ sub LaunchSearchTasks()
     PumpSearchTasks()
 end sub
 
-' At most two providers per generation; stale generations never enter the grid.
 sub PumpSearchTasks()
     if m.searchTasks = invalid then return
     active = 0
     for each key in m.searchTasks
         if m.searchTasks[key] <> invalid then active = active + 1
     end for
-    while active < 2 and m.searchQueue.Count() > 0
+    maxActive = 2
+    if m.stores <> invalid and m.stores.settings <> invalid and m.stores.settings.callFunc("SettingsGetLightMode")
+        maxActive = 1
+    end if
+    while active < maxActive and m.searchQueue.Count() > 0
         entry = m.searchQueue.Shift()
         addonKey = entry.key
         task = AsyncTask_Launch(m.top, "SearchLoaderTask", "onSearchLoaded", {
@@ -440,12 +462,59 @@ sub PumpSearchTasks()
     end while
 end sub
 
-' One add-on's search landed (or failed). The task reports its sections keyed by
-' catalog key; a stale result that landed after CancelSearch is dropped by the
-' slot guard — the whole map is invalid (cancel), or the slot was cleared
-' (already applied). A section's metas are parked in m.landed by key, then the
-' row list is rebuilt from scratch so only catalogs that actually returned
-' results appear, in discovery order.
+sub ShowHistory()
+    if m.historyGroup = invalid or m.historyStore = invalid then return
+    items = m.historyStore.GetAll()
+    if items.Count() = 0
+        m.historyList.content = invalid
+        HideHistory()
+        return
+    end if
+    content = CreateObject("roSGNode", "ContentNode")
+    for each item in items
+        node = content.CreateChild("ContentNode")
+        node.title = item
+    end for
+    m.historyList.content = content
+    m.historyGroup.visible = true
+    if m.results <> invalid then m.results.visible = false
+end sub
+
+sub HideHistory()
+    if m.historyGroup <> invalid then m.historyGroup.visible = false
+    if m.results <> invalid then m.results.visible = true
+end sub
+
+sub onHistorySelected()
+    if m.historyStore = invalid or m.historyList = invalid then return
+    items = m.historyStore.GetAll()
+    idx = m.historyList.itemSelected
+    if idx < 0 or idx >= items.Count() then return
+    selectedQuery = items[idx]
+    m.keyboard.text = selectedQuery
+    UpdateQueryDisplay()
+    m.debounce.control = "stop"
+    HideHistory()
+    RunSearch(selectedQuery)
+end sub
+
+sub onClearHistory()
+    if m.historyStore = invalid then return
+    m.historyStore.Clear()
+    ShowHistory()
+    m.keyboard.SetFocus(true)
+end sub
+
+sub onRemoveHistoryItem()
+    if m.historyStore = invalid or m.historyList = invalid then return
+    items = m.historyStore.GetAll()
+    idx = m.historyList.itemFocused
+    if idx < 0 or idx >= items.Count() then return
+    m.historyStore.Remove(items[idx])
+    ShowHistory()
+    m.keyboard.SetFocus(true)
+end sub
+
 sub onSearchLoaded(event as object)
     if m.searchTasks = invalid then return
     task = event.GetRoSGNode()
@@ -478,9 +547,6 @@ sub onSearchLoaded(event as object)
     UpdateSearchStatus()
 end sub
 
-' m.rows = every catalog that landed metas, in the discovery order of
-' m.searchOrder. Rows appear only with results, so a catalog with no matches (or
-' an add-on that got no usable answer) never occupies a row.
 sub RebuildRows()
     prevCount = m.rows.Count()
     rows = []
@@ -501,9 +567,6 @@ sub RebuildRows()
     if prevCount = 0 and m.rows.Count() > 0 then m.results.jumpToRowItem = [0, 0]
 end sub
 
-' Rebuild the whole grid from m.rows. Every row carries only landed metas, so
-' there is nothing to render while a catalog is still resolving — the status
-' line says what is happening.
 sub RenderRows()
     content = CreateObject("roSGNode", "ContentNode")
     sizes = []
@@ -521,23 +584,14 @@ sub RenderRows()
             if m.stores <> invalid then glyph = m.stores.library.callFunc("LibraryWatchedGlyph", meta.id, meta.type)
             entry.watchedGlyph = glyph
         end for
-        ' Each result catalog sizes its own row to its posterShape (folded from
-        ' the metas), so a landscape catalog lands wide rows even among 2:3 ones;
-        ' falls back to the content type when no shape ships.
         sizes.Push(TileCellSize(row.rawType, TilePosterShape(row.metas)))
     end for
     m.results.content = content
     m.results.rowItemSize = sizes
-    ' Per-row slot heights so a landscape/square catalog row sits tight instead of
-    ' inheriting the 2:3 itemSize height and leaving a phantom gap (see
-    ' TileRowHeights).
     m.results.rowHeights = TileRowHeights(sizes)
     m.results.numRows = m.rows.Count()
 end sub
 
-' The status line: "Searching…" while any add-on is still resolving; once all
-' settle, clears when results exist, names the failure when every catalog failed,
-' or says there were no matches.
 sub UpdateSearchStatus()
     if m.searchTasks = invalid then return
     pending = m.searchQueue.Count()
@@ -546,12 +600,37 @@ sub UpdateSearchStatus()
     end for
     if pending > 0
         m.status.text = Lang("search", "searching")
+        if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
     else if m.rows.Count() > 0
         m.status.text = ""
+        if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
     else if m.searchFailed
         m.status.text = Lang("search", "searchFailed")
+        if m.retrySearchBtn <> invalid then
+            m.retrySearchBtn.text = Lang("search", "retry")
+            m.retrySearchBtn.visible = true
+        end if
     else
         m.status.text = Fill(Lang("search", "noResults"), { query: m.lastQuery })
+        if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
+    end if
+end sub
+
+sub onRetrySearch()
+    if m.lastQuery <> invalid and m.lastQuery <> ""
+        RunSearch(m.lastQuery)
+    end if
+end sub
+
+sub UpdateQueryDisplay()
+    if m.searchQueryDisplay = invalid or m.keyboard = invalid then return
+    q = m.keyboard.text
+    if q <> invalid and q.Trim() <> ""
+        m.searchQueryDisplay.text = q
+        m.searchQueryDisplay.color = &hFFFFFFFF
+    else
+        m.searchQueryDisplay.text = Lang("search", "placeholder")
+        m.searchQueryDisplay.color = &h888888FF
     end if
 end sub
 
@@ -567,8 +646,6 @@ sub CancelSearch()
     m.searchTasks = invalid
 end sub
 
-' A result opens DetailsScreen through the same one-action channel Home uses for
-' a catalog tile: full meta + the source add-on's address (from the row).
 sub onResultSelected()
     data = m.results.rowItemSelected
     if data = invalid or data.Count() < 2 then return
@@ -579,6 +656,7 @@ sub onResultSelected()
     target = m.rows[row]
     metas = target.metas
     if index >= metas.Count() then return
+    RememberCompletedSearch()
     m.top.pushRequest = {
         screen: "detailsScreen"
         params: {
@@ -588,25 +666,100 @@ sub onResultSelected()
     }
 end sub
 
-' The * (options) button reopens the query prompt, prefilled. Everything else
-' falls through to the stack (Back pops, arrows move inside the results list).
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
+
+    if m.historyGroup <> invalid and m.historyGroup.visible
+        if key = "right" and m.historyList.HasFocus()
+            m.keyboard.SetFocus(true)
+            return true
+        else if key = "left" and m.historyList.HasFocus()
+            m.keyboard.SetFocus(true)
+            return true
+        else if key = "down" and m.historyList.HasFocus()
+            m.clearHistoryBtn.SetFocus(true)
+            return true
+        else if key = "up" and (m.clearHistoryBtn.HasFocus() or m.removeHistoryBtn.HasFocus())
+            m.historyList.SetFocus(true)
+            return true
+        else if key = "right" and m.clearHistoryBtn.HasFocus()
+            m.removeHistoryBtn.SetFocus(true)
+            return true
+        else if key = "left" and m.removeHistoryBtn.HasFocus()
+            m.clearHistoryBtn.SetFocus(true)
+            return true
+        else if key = "right" and (m.clearHistoryBtn.HasFocus() or m.removeHistoryBtn.HasFocus())
+            m.keyboard.SetFocus(true)
+            return true
+        end if
+    end if
+
     if key = "down" and m.keyboard.IsInFocusChain()
         m.resultsButton.SetFocus(true)
         return true
+    else if key = "left" and m.keyboard.IsInFocusChain()
+        if m.historyGroup <> invalid and m.historyGroup.visible and m.historyList <> invalid and m.historyList.content <> invalid and m.historyList.content.getChildCount() > 0
+            m.historyList.SetFocus(true)
+            return true
+        end if
     else if key = "up" and m.resultsButton.HasFocus()
         m.keyboard.SetFocus(true)
         return true
     else if key = "right" and m.resultsButton.HasFocus()
-        onShowResults()
+        if m.retrySearchBtn <> invalid and m.retrySearchBtn.visible
+            m.retrySearchBtn.SetFocus(true)
+            return true
+        else
+            onShowResults()
+            return true
+        end if
+    else if key = "left" and m.resultsButton.HasFocus()
+        if m.historyGroup <> invalid and m.historyGroup.visible and m.historyList <> invalid
+            m.historyList.SetFocus(true)
+            return true
+        end if
+    else if key = "down" and m.resultsButton.HasFocus()
+        if m.rows.Count() > 0
+            RememberCompletedSearch()
+            m.results.SetFocus(true)
+            return true
+        end if
+    else if key = "left" and m.retrySearchBtn <> invalid and m.retrySearchBtn.HasFocus()
+        m.resultsButton.SetFocus(true)
         return true
-    else if key = "left" and m.results.HasFocus()
+    else if key = "up" and m.retrySearchBtn <> invalid and m.retrySearchBtn.HasFocus()
         m.keyboard.SetFocus(true)
         return true
+    else if key = "up" and m.results.HasFocus()
+        m.resultsButton.SetFocus(true)
+        return true
+    else if key = "left" and m.results.HasFocus()
+        if m.results.rowItemSelected <> invalid and m.results.rowItemSelected.Count() > 1 and m.results.rowItemSelected[1] = 0
+            m.keyboard.SetFocus(true)
+            return true
+        end if
     else if key = "options" and not m.keyboard.IsInFocusChain()
         ShowSearchDialog()
         return true
     end if
     return false
 end function
+
+sub ScheduleKeyboardLayout()
+    m.keyboardLayoutAttempts = 0
+    m.keyboardLayoutTimer.control = "stop"
+    m.keyboardLayoutTimer.control = "start"
+end sub
+
+sub FitSearchKeyboard()
+    if not m.top.screenActive then return
+    m.keyboardLayoutAttempts = m.keyboardLayoutAttempts + 1
+    fit = FitWidgetRect(m.keyboard.localBoundingRect(), 760, 580, 0.7)
+    attempts = 6
+    if fit <> invalid
+        m.keyboard.scale = fit.scale
+        m.keyboard.translation = fit.translation
+        attempts = 3
+    end if
+    if m.keyboardLayoutAttempts < attempts then m.keyboardLayoutTimer.control = "start"
+end sub

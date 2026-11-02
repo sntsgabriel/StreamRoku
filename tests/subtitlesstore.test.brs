@@ -166,3 +166,25 @@ sub Test_Subtitles_NonTextLangIsNoCode()
     Harness_Equal(store.TrackLang({ lang: "EN" }), "en", "text lang is still lowercased")
     Harness_Equal(store.PickTrack([{ lang: 42 }, { lang: "en" }], "en-GB"), 1, "a numeric lang is skipped, not thrown on")
 end sub
+
+sub Test_Subtitles_BrazilianPortugueseAndStrictAbsent()
+    Harness_Suite("SubtitlesStore.PickTrack differentiates pt-BR and handles absent languages")
+    store = SubtitlesStore(ScriptedTransport([]))
+    tracks = [
+        SubtitleTrack("1", "u1", "por", "Portuguese"),
+        SubtitleTrack("2", "u2", "pob", "Portuguese (Brazil)"),
+        SubtitleTrack("3", "u3", "eng", "English")
+    ]
+
+    ' Differentiate pt-BR from generic pt
+    Harness_Equal(store.PickTrack(tracks, "pt-BR", true), 1, "strict pt-BR picks Brazilian Portuguese track")
+    Harness_Equal(store.PickTrack(tracks, "pt", true), 0, "strict pt picks generic Portuguese track")
+
+    ' Absent language handling: does not select incorrect language
+    foreignTracks = [
+        SubtitleTrack("1", "u1", "rus", "Russian"),
+        SubtitleTrack("2", "u2", "jpn", "Japanese")
+    ]
+    Harness_Equal(store.PickTrack(foreignTracks, "pt-BR", true), -1, "strict pt-BR returns -1 when language is absent")
+    Harness_Equal(store.PickTrack(foreignTracks, "es", true), -1, "strict es returns -1 when language is absent")
+end sub

@@ -297,6 +297,7 @@ sub ResumeEpisode()
             posterShape: m.meta.posterShape
             logo: m.meta.logo
             background: m.meta.background
+            meta: m.meta
         }
     }
 end sub
@@ -321,6 +322,7 @@ sub PlayMedia()
             posterShape: m.meta.posterShape
             logo: m.meta.logo
             background: m.meta.background
+            meta: m.meta
             }
         }
     else

@@ -72,6 +72,16 @@ function AsyncTask_Launch(parent as object, taskName as string, callback as stri
             task[key] = fields[key]
         end for
     end if
+    if task.HasField("responseCache")
+        scene = parent.GetScene()
+        if scene <> invalid
+            cacheNode = scene.FindNode("responseCache")
+            if cacheNode <> invalid
+                task.responseCache = cacheNode
+                task.cacheGeneration = cacheNode.callFunc("GetGeneration")
+            end if
+        end if
+    end if
     task.ObserveField("result", callback)
     if doneCallback <> "" then task.ObserveField("finished", doneCallback)
     task.control = "RUN"

@@ -12,7 +12,7 @@ sub search()
     sections = []
     results = { sections: sections, addonKey: m.top.addonKey }
     try
-        http = Transport()
+        http = Transport(invalid, m.top.responseCache, m.top.cacheGeneration)
         catalog = CatalogStore(http)
 
         for each cat in m.top.catalogs

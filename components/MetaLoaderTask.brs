@@ -11,7 +11,7 @@ end sub
 
 sub load()
     try
-        http = Transport()
+        http = Transport(invalid, m.top.responseCache, m.top.cacheGeneration)
         store = EpisodesStore(http)
         answer = store.GetMeta(m.top.addonAddress, m.top.metaType, m.top.metaId)
         m.top.result = { ok: answer.ok, meta: answer.meta, error: answer.error }

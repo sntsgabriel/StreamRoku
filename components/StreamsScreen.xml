@@ -26,6 +26,7 @@
     <script type="text/brightscript" uri="pkg:/source/core/AsyncTask.bs" />
     <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
     <script type="text/brightscript" uri="pkg:/source/util/Helpers.brs" />
+    <script type="text/brightscript" uri="pkg:/source/util/StreamFilter.brs" />
 
     <children>
         <Rectangle id="streamBg" width="1920" height="1080" />
@@ -95,6 +96,12 @@
         <Group
             id="providerSegments"
             translation="[760, 156]" />
+        <Label
+            id="filterStatus"
+            translation="[760, 146]"
+            width="900"
+            height="30"
+            font="font:SmallSystemFont" />
         <RowList
             id="streamsList"
             translation="[760, 180]"
@@ -115,6 +122,12 @@
             horizAlign="left"
             vertAlign="top"
             font="font:MediumSystemFont"
+            visible="false" />
+        <Button
+            id="clearFilterBtn"
+            translation="[760, 460]"
+            minWidth="320"
+            maxWidth="400"
             visible="false" />
     </children>
 </component>

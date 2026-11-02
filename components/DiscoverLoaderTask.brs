@@ -13,7 +13,7 @@ end sub
 sub discover()
     try
         result = { ok: false, metas: [], hasMore: false, error: "" }
-        http = Transport()
+        http = Transport(invalid, m.top.responseCache, m.top.cacheGeneration)
         catalog = CatalogStore(http)
 
         if m.top.addonAddress <> "" and m.top.metaType <> "" and m.top.catalogId <> ""

@@ -247,7 +247,8 @@ end sub
 ' in one language and painted in another cannot disagree with itself.
 function SectionDefinitions() as object
     sections = []
-    sections.Push({ id: "general", rows: ["account", "language"] })
+    sections.Push({ id: "general", rows: ["account", "language", "lightMode", "largeText", "highContrastFocus"] })
+    sections.Push({ id: "playback", rows: ["subtitlesEnabled", "preferredSubtitle", "preferredAudio", "autoplayNext"] })
     server = ["server", "audioPassthrough", "audioTransmux", "torrentProfile", "cacheSize", "testServer"]
     ' The two diagnostic rows are appended last and only once the gesture has
     ' revealed them, so they stay out of the way of the rows people use.
@@ -263,6 +264,7 @@ end function
 ' while the rows beside it already speak the new one.
 function SectionLabel(id as string) as string
     if id = "general" then return Lang("settings", "sectionGeneral")
+    if id = "playback" then return Lang("settings", "sectionPlayback")
     if id = "server" then return Lang("settings", "sectionServer")
     return id
 end function
@@ -276,6 +278,20 @@ function RowLabel(action as string) as string
         return Lang("settings", "rowLogin")
     else if action = "language" then
         return Lang("settings", "rowLanguage")
+    else if action = "lightMode" then
+        return Lang("settings", "rowLightMode")
+    else if action = "largeText" then
+        return Lang("settings", "rowLargeText")
+    else if action = "highContrastFocus" then
+        return Lang("settings", "rowHighContrastFocus")
+    else if action = "subtitlesEnabled" then
+        return Lang("settings", "rowSubtitlesEnabled")
+    else if action = "preferredSubtitle" then
+        return Lang("settings", "rowPreferredSubtitle")
+    else if action = "preferredAudio" then
+        return Lang("settings", "rowPreferredAudio")
+    else if action = "autoplayNext" then
+        return Lang("settings", "rowAutoplayNext")
     else if action = "server" then
         return Lang("settings", "rowServer")
     else if action = "audioPassthrough" then
@@ -310,6 +326,20 @@ function RowValue(action as string) as string
         return ""
     else if action = "language" then
         return LanguageValue()
+    else if action = "lightMode" then
+        return LightModeValue()
+    else if action = "largeText" then
+        return LargeTextValue()
+    else if action = "highContrastFocus" then
+        return HighContrastFocusValue()
+    else if action = "subtitlesEnabled" then
+        return SubtitlesEnabledValue()
+    else if action = "preferredSubtitle" then
+        return PreferredSubtitleValue()
+    else if action = "preferredAudio" then
+        return PreferredAudioValue()
+    else if action = "autoplayNext" then
+        return AutoplayNextValue()
     else if action = "server" then
         return ServerValue()
     else if action = "audioPassthrough" then
@@ -479,6 +509,58 @@ function LanguageValue() as string
     return language
 end function
 
+function PreferredAudioValue() as string
+    if m.stores = invalid then return Lang("common", "langDefault")
+    code = m.stores.settings.callFunc("SettingsGetPreferredAudioLanguage")
+    if code = "" then return Lang("common", "langDefault")
+    if code = "pt-BR" then return Lang("common", "langPtBr")
+    if code = "pt" then return Lang("common", "langPt")
+    if code = "en" then return Lang("common", "langEn")
+    if code = "es" then return Lang("common", "langEs")
+    return code
+end function
+
+function PreferredSubtitleValue() as string
+    if m.stores = invalid then return Lang("common", "off")
+    code = m.stores.settings.callFunc("SettingsGetPreferredSubtitleLanguage")
+    if code = "" then return Lang("common", "off")
+    if code = "pt-BR" then return Lang("common", "langPtBr")
+    if code = "pt" then return Lang("common", "langPt")
+    if code = "en" then return Lang("common", "langEn")
+    if code = "es" then return Lang("common", "langEs")
+    return code
+end function
+
+function SubtitlesEnabledValue() as string
+    if m.stores = invalid then return Lang("common", "off")
+    if m.stores.settings.callFunc("SettingsGetSubtitlesEnabled") then return Lang("common", "on")
+    return Lang("common", "off")
+end function
+
+function AutoplayNextValue() as string
+    if m.stores = invalid then return Lang("common", "off")
+    if m.stores.settings.callFunc("SettingsGetAutoplayNext") then return Lang("common", "on")
+    return Lang("common", "off")
+end function
+
+function LightModeValue() as string
+    if m.stores = invalid then return Lang("common", "off")
+    if m.stores.settings.callFunc("SettingsGetLightMode") then return Lang("common", "on")
+    return Lang("common", "off")
+end function
+
+function LargeTextValue() as string
+    if m.stores = invalid then return Lang("common", "off")
+    if m.stores.settings.callFunc("SettingsGetLargeText") then return Lang("common", "on")
+    return Lang("common", "off")
+end function
+
+function HighContrastFocusValue() as string
+    if m.stores = invalid then return Lang("common", "off")
+    if m.stores.settings.callFunc("SettingsGetHighContrastFocus") then return Lang("common", "on")
+    return Lang("common", "off")
+end function
+
 ' One of the audio copy options: the codecs it would offer, or Off. The
 ' codecs come from the probe, and they are what the option is FOR — the value
 ' is the consequence, not a boolean.
@@ -581,6 +663,20 @@ function PanelBody(action as string) as string
         return Lang("settings", "panelServer")
     else if action = "language" then
         return Lang("settings", "panelLanguage")
+    else if action = "lightMode" then
+        return Lang("settings", "panelLightMode")
+    else if action = "largeText" then
+        return Lang("settings", "panelLargeText")
+    else if action = "highContrastFocus" then
+        return Lang("settings", "panelHighContrastFocus")
+    else if action = "subtitlesEnabled" then
+        return Lang("settings", "panelSubtitlesEnabled")
+    else if action = "preferredSubtitle" then
+        return Lang("settings", "panelPreferredSubtitle")
+    else if action = "preferredAudio" then
+        return Lang("settings", "panelPreferredAudio")
+    else if action = "autoplayNext" then
+        return Lang("settings", "panelAutoplayNext")
     else if action = "testServer" then
         return Lang("settings", "panelTestServer")
     else if action = "account" then
@@ -945,6 +1041,20 @@ sub onRowSelected()
         EditServer()
     else if action = "language"
         CycleLanguage()
+    else if action = "lightMode"
+        ToggleLightMode()
+    else if action = "largeText"
+        ToggleLargeText()
+    else if action = "highContrastFocus"
+        ToggleHighContrastFocus()
+    else if action = "subtitlesEnabled"
+        ToggleSubtitlesEnabled()
+    else if action = "preferredSubtitle"
+        CyclePreferredSubtitle()
+    else if action = "preferredAudio"
+        CyclePreferredAudio()
+    else if action = "autoplayNext"
+        ToggleAutoplayNext()
     else if action = "audioPassthrough"
         ToggleAudioPassthrough()
     else if action = "audioTransmux"
@@ -1134,6 +1244,92 @@ sub CycleLanguage() as void
         ReportSaveFault()
         ApplyLanguage()
     end if
+end sub
+
+sub CyclePreferredAudio() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetPreferredAudioLanguage")
+    options = ["", "pt-BR", "pt", "en", "es"]
+    nextIdx = 0
+    for i = 0 to options.Count() - 1
+        if options[i] = current
+            nextIdx = (i + 1) mod options.Count()
+            exit for
+        end if
+    end for
+    if m.stores.settings.callFunc("SettingsSetPreferredAudioLanguage", options[nextIdx])
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
+end sub
+
+sub CyclePreferredSubtitle() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetPreferredSubtitleLanguage")
+    options = ["", "pt-BR", "pt", "en", "es"]
+    nextIdx = 0
+    for i = 0 to options.Count() - 1
+        if options[i] = current
+            nextIdx = (i + 1) mod options.Count()
+            exit for
+        end if
+    end for
+    if m.stores.settings.callFunc("SettingsSetPreferredSubtitleLanguage", options[nextIdx])
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
+end sub
+
+sub ToggleSubtitlesEnabled() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetSubtitlesEnabled")
+    if m.stores.settings.callFunc("SettingsSetSubtitlesEnabled", not current)
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
+end sub
+
+sub ToggleAutoplayNext() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetAutoplayNext")
+    if m.stores.settings.callFunc("SettingsSetAutoplayNext", not current)
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
+end sub
+
+sub ToggleLightMode() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetLightMode")
+    if m.stores.settings.callFunc("SettingsSetLightMode", not current)
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
+end sub
+
+sub ToggleLargeText() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetLargeText")
+    if m.stores.settings.callFunc("SettingsSetLargeText", not current)
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
+end sub
+
+sub ToggleHighContrastFocus() as void
+    if m.stores = invalid then return
+    current = m.stores.settings.callFunc("SettingsGetHighContrastFocus")
+    if m.stores.settings.callFunc("SettingsSetHighContrastFocus", not current)
+        ReportSaveFault()
+    end if
+    RefreshValues()
+    UpdatePanel()
 end sub
 
 ' Report the streaming server's reachability through the status line. Verifying

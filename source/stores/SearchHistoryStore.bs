@@ -1,0 +1,87 @@
+' SearchHistoryStore — persisted recent search queries, pure logic on a registry seam.
+class SearchHistoryStore
+    registry as dynamic
+    maxItems as integer
+    items as object
+
+    sub new(registry = invalid as dynamic, maxItems = 10 as integer)
+        m.registry = registry
+        m.maxItems = maxItems
+        m.items = []
+        m.Load()
+    end sub
+
+    function GetAll() as object
+        result = []
+        for each item in m.items
+            result.Push(item)
+        end for
+        return result
+    end function
+
+    function Add(query as string) as boolean
+        trimmed = query.Trim()
+        if trimmed.Len() < 2 then return false
+
+        newItems = [trimmed]
+        for each existing in m.items
+            if LCase(existing) <> LCase(trimmed) and newItems.Count() < m.maxItems
+                newItems.Push(existing)
+            end if
+        end for
+        m.items = newItems
+        m.Save()
+        return true
+    end function
+
+    function Remove(query as string) as boolean
+        trimmed = query.Trim()
+        if trimmed = "" then return false
+        found = false
+        newItems = []
+        for each existing in m.items
+            if LCase(existing) = LCase(trimmed)
+                found = true
+            else
+                newItems.Push(existing)
+            end if
+        end for
+        if found
+            m.items = newItems
+            m.Save()
+        end if
+        return found
+    end function
+
+    sub Clear()
+        m.items = []
+        m.Save()
+    end sub
+
+    function Save() as boolean
+        if m.registry = invalid then return true
+        m.registry.Write("history_count", m.items.Count().ToStr())
+        for i = 0 to m.items.Count() - 1
+            m.registry.Write("history_item_" + i.ToStr(), m.items[i])
+        end for
+        ' Removing or clearing history must remove stale registry entries too.
+        for i = m.items.Count() to m.maxItems - 1
+            m.registry.Delete("history_item_" + i.ToStr())
+        end for
+        m.registry.Flush()
+        return true
+    end function
+
+    sub Load()
+        if m.registry = invalid then return
+        m.items = []
+        countStr = m.registry.Read("history_count")
+        if countStr = "" then return
+        count = countStr.ToInt()
+        if count > m.maxItems then count = m.maxItems
+        for i = 0 to count - 1
+            val = m.registry.Read("history_item_" + i.ToStr())
+            if val <> "" then m.items.Push(val)
+        end for
+    end sub
+end class

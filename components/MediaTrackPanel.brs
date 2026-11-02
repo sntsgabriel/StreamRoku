@@ -1,36 +1,21 @@
 sub init()
-    m.languages = m.top.FindNode("languages")
-    m.tracks = m.top.FindNode("tracks")
-    m.subTab = m.top.FindNode("subTab")
-    m.audioTab = m.top.FindNode("audioTab")
-    m.close = m.top.FindNode("close")
-    m.off = m.top.FindNode("off")
-    m.on = m.top.FindNode("on")
-    m.mode = "subtitle"
-    m.groups = []
-    m.entries = []
+    m.subtitles = m.top.FindNode("subtitles")
+    m.audio = m.top.FindNode("audio")
+    m.subtitleRows = []
+    m.audioRows = []
+    m.audioSection = false
     t = Theme()
-    m.top.FindNode("shade").color = t.scrim
     m.top.FindNode("card").color = t.mediaPanelBg
-    for each id in ["title", "languageHeading", "trackHeading", "detailHeading", "empty"]
-        m.top.FindNode(id).color = t.textPrimary
+    for each id in ["panelHeading", "subtitleHeading", "audioHeading"]
+        m.top.FindNode(id).color = t.textWhite
     end for
-    m.top.FindNode("details").color = t.textSecondary
-    m.top.FindNode("hint").color = t.textSecondary
-    for each list in [m.languages, m.tracks]
-        list.color = t.textPrimary
-        list.focusedColor = t.textWhite
-        list.focusBitmapBlendColor = t.mediaPanelAccent
+    for each id in ["subtitleEmpty", "audioEmpty", "hint", "subtitleCount", "audioCount", "tabHint"]
+        m.top.FindNode(id).color = t.mediaPanelMuted
     end for
-    m.languages.ObserveField("itemFocused", "onLanguageFocused")
-    m.languages.ObserveField("itemSelected", "FocusTracks")
-    m.tracks.ObserveField("itemFocused", "UpdateDetails")
-    m.tracks.ObserveField("itemSelected", "SelectTrack")
-    m.subTab.ObserveField("buttonSelected", "ShowSubtitles")
-    m.audioTab.ObserveField("buttonSelected", "ShowAudio")
-    m.close.ObserveField("buttonSelected", "RequestClose")
-    m.off.ObserveField("buttonSelected", "TurnOff")
-    m.on.ObserveField("buttonSelected", "TurnOn")
+    m.subtitles.ObserveField("itemSelected", "SelectSubtitle")
+    m.audio.ObserveField("itemSelected", "SelectAudio")
+    m.subtitles.ObserveField("itemFocused", "UpdateCounts")
+    m.audio.ObserveField("itemFocused", "UpdateCounts")
 end sub
 
 function Word(key as string) as string
@@ -39,147 +24,101 @@ end function
 
 sub Open()
     m.top.visible = true
-    m.mode = "subtitle"
-    m.subTab.text = Word("subtitles")
-    m.audioTab.text = Word("audio")
-    m.close.text = Word("close")
-    m.top.FindNode("languageHeading").text = Word("languages")
-    m.top.FindNode("trackHeading").text = Word("tracks")
-    m.top.FindNode("detailHeading").text = Word("details")
+    m.top.FindNode("panelHeading").text = Word("panelTitle")
+    m.top.FindNode("subtitleHeading").text = Word("subtitles")
+    m.top.FindNode("audioHeading").text = Word("audio")
     m.top.FindNode("hint").text = Word("hint")
-    m.off.text = Word("off")
-    m.on.text = Word("on")
-    RebuildLanguages()
-    FocusLanguages()
+    m.top.FindNode("tabHint").text = Word("tabHint")
+    m.subtitleRows = TrackPanelRows(m.top.subtitleEntries, true, m.top.words)
+    m.audioRows = TrackPanelRows(m.top.audioEntries, false, m.top.words)
+    RenderLists(true)
+    FocusSection(false)
 end sub
 
 sub DismissPanel()
     m.top.visible = false
-    m.groups = []
-    m.entries = []
-    m.languages.content = invalid
-    m.tracks.content = invalid
+    m.subtitleRows = []
+    m.audioRows = []
+    m.subtitles.content = invalid
+    m.audio.content = invalid
 end sub
 
 sub RequestClose()
     m.top.closeRequested = true
 end sub
 
-sub ShowSubtitles()
-    m.mode = "subtitle"
-    RebuildLanguages()
-    FocusLanguages()
+' A selection check is independent of keyboard focus. Rebuilding content must
+' preserve the browsing position, including when late native tracks arrive.
+sub RenderLists(initial as boolean)
+    RenderList(m.subtitles, m.subtitleRows, m.top.currentSubtitle, m.top.captionsEnabled, initial)
+    RenderList(m.audio, m.audioRows, m.top.currentAudio, true, initial)
+    m.top.FindNode("subtitleEmpty").text = ""
+    if m.subtitleRows.Count() = 1 then m.top.FindNode("subtitleEmpty").text = Word("noSubtitles")
+    m.top.FindNode("audioEmpty").text = ""
+    if m.audioRows.Count() = 0 then m.top.FindNode("audioEmpty").text = Word("noAudio")
+    UpdateCounts()
 end sub
 
-sub ShowAudio()
-    m.mode = "audio"
-    RebuildLanguages()
-    FocusLanguages()
-end sub
-
-sub RebuildLanguages()
-    entries = m.top.subtitleEntries
-    title = Word("subtitles")
-    if m.mode = "audio"
-        entries = m.top.audioEntries
-        title = Word("audio")
-    end if
-    if entries = invalid then entries = []
-    m.top.FindNode("title").text = title
-    m.groups = TrackPanelGroups(entries)
-    m.off.visible = m.mode = "subtitle"
-    m.on.visible = m.mode = "subtitle" and entries.Count() > 0
-    m.top.FindNode("empty").visible = entries.Count() = 0
-    emptyWord = "noSubtitles"
-    if m.mode = "audio" then emptyWord = "noAudio"
-    m.top.FindNode("empty").text = Word(emptyWord)
-    selected = m.top.currentSubtitle
-    if m.mode = "audio" then selected = m.top.currentAudio
-    initial = 0
+sub RenderList(list as object, rows as object, selected as string, enabled as boolean, initial as boolean)
+    previous = list.itemFocused
     content = CreateObject("roSGNode", "ContentNode")
-    for i = 0 to m.groups.Count() - 1
-        group = m.groups[i]
+    active = 0
+    for i = 0 to rows.Count() - 1
+        row = rows[i]
+        checked = enabled and row.id = selected and row.action <> "off"
+        if row.action = "off" then checked = not enabled
+        if checked then active = i
         node = content.CreateChild("ContentNode")
-        node.title = group.label
-        for each entry in group.entries
-            if entry.id = selected then initial = i
-        end for
+        node.title = row.label
+        node.AddFields({trackChecked: checked})
     end for
-    m.languages.content = content
-    m.languages.jumpToItem = initial
-    ShowLanguage(initial)
+    list.content = content
+    if initial then previous = active
+    if previous < 0 then previous = 0
+    if previous >= rows.Count() then previous = rows.Count() - 1
+    if previous >= 0 then list.jumpToItem = previous
 end sub
 
-sub FocusLanguages()
-    if m.groups.Count() > 0
-        m.languages.SetFocus(true)
-    else if m.off.visible
-        m.off.SetFocus(true)
+sub FocusSection(audio as boolean)
+    target = m.subtitles
+    if audio then target = m.audio
+    m.audioSection = audio
+    ApplySectionLook()
+    if audio and m.audioRows.Count() = 0
+        m.top.SetFocus(true)
     else
-        m.close.SetFocus(true)
+        target.SetFocus(true)
     end if
-end sub
-
-sub onLanguageFocused()
-    ShowLanguage(m.languages.itemFocused)
-end sub
-
-sub ShowLanguage(index as integer)
-    m.entries = []
-    if index >= 0 and index < m.groups.Count() then m.entries = m.groups[index].entries
-    RefreshSelection()
 end sub
 
 sub RefreshSelection()
-    selected = m.top.currentSubtitle
-    enabled = m.top.captionsEnabled
-    if m.mode = "audio"
-        selected = m.top.currentAudio
-        enabled = true
-    end if
-    content = CreateObject("roSGNode", "ContentNode")
-    for i = 0 to m.entries.Count() - 1
-        entry = m.entries[i]
-        node = content.CreateChild("ContentNode")
-        prefix = ""
-        if enabled and entry.id = selected then prefix = "✓ "
-        node.title = prefix + entry.title + "  ·  " + entry.format + "  ·  " + (i + 1).ToStr()
-    end for
-    previous = m.tracks.itemFocused
-    m.tracks.content = content
-    if previous >= 0 and previous < m.entries.Count() then m.tracks.jumpToItem = previous
-    UpdateDetails()
+    RenderLists(false)
 end sub
 
-sub FocusTracks()
-    if m.entries.Count() > 0 then m.tracks.SetFocus(true)
+sub RefreshEntries()
+    subtitles = TrackPanelRows(m.top.subtitleEntries, true, m.top.words)
+    audio = TrackPanelRows(m.top.audioEntries, false, m.top.words)
+    subIndex = TrackPanelRestoreIndex(m.subtitleRows, subtitles, m.subtitles.itemFocused)
+    audioIndex = TrackPanelRestoreIndex(m.audioRows, audio, m.audio.itemFocused)
+    m.subtitleRows = subtitles
+    m.audioRows = audio
+    RenderLists(false)
+    if subIndex >= 0 then m.subtitles.jumpToItem = subIndex
+    if audioIndex >= 0 then m.audio.jumpToItem = audioIndex
 end sub
 
-sub UpdateDetails()
-    label = m.top.FindNode("details")
-    label.text = ""
-    index = m.tracks.itemFocused
-    if index < 0 or index >= m.entries.Count() then return
-    entry = m.entries[index]
-    label.text = entry.language + chr(10) + chr(10) + entry.provider + chr(10) + chr(10) + entry.format
+sub SelectSubtitle()
+    index = m.subtitles.itemSelected
+    if index < 0 or index >= m.subtitleRows.Count() then return
+    row = m.subtitleRows[index]
+    m.top.choice = { action: row.action, track: row.id, code: row.code }
 end sub
 
-sub SelectTrack()
-    index = m.tracks.itemSelected
-    if index < 0 or index >= m.entries.Count() then return
-    action = "track"
-    if m.mode = "audio" then action = "audio"
-    m.top.choice = { action: action, track: m.entries[index].id }
-end sub
-
-sub TurnOff()
-    m.top.choice = { action: "off", track: "" }
-end sub
-
-sub TurnOn()
-    track = m.top.currentSubtitle
-    if track = "" and m.entries.Count() > 0 then track = m.entries[0].id
-    if track <> "" then m.top.choice = { action: "on", track: track }
+sub SelectAudio()
+    index = m.audio.itemSelected
+    if index < 0 or index >= m.audioRows.Count() then return
+    row = m.audioRows[index]
+    m.top.choice = { action: "audio", track: row.id, code: row.code }
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
@@ -188,63 +127,40 @@ function onKeyEvent(key as string, press as boolean) as boolean
         RequestClose()
         return true
     else if key = "right"
-        if m.languages.HasFocus()
-            FocusTracks()
-        else if m.subTab.HasFocus()
-            m.audioTab.SetFocus(true)
-        else if m.audioTab.HasFocus()
-            m.close.SetFocus(true)
-        else if m.off.HasFocus() and m.on.visible
-            m.on.SetFocus(true)
-        else
-            return false
-        end if
+        FocusSection(true)
         return true
     else if key = "left"
-        if m.tracks.HasFocus()
-            m.languages.SetFocus(true)
-        else if m.audioTab.HasFocus()
-            m.subTab.SetFocus(true)
-        else if m.close.HasFocus()
-            m.audioTab.SetFocus(true)
-        else if m.on.HasFocus()
-            m.off.SetFocus(true)
-        else
-            return false
-        end if
+        FocusSection(false)
         return true
-    else if key = "down"
-        if m.subTab.HasFocus() or m.audioTab.HasFocus() or m.close.HasFocus()
-            FocusLanguages()
-        else if m.mode = "subtitle" and (m.languages.HasFocus() or m.tracks.HasFocus())
-            m.off.SetFocus(true)
-        else
-            return false
-        end if
-        return true
-    else if key = "up"
-        if m.off.HasFocus() or m.on.HasFocus()
-            if m.groups.Count() > 0 then FocusLanguages() else m.subTab.SetFocus(true)
-        else if m.languages.HasFocus() or m.tracks.HasFocus()
-            m.subTab.SetFocus(true)
-        else
-            return false
-        end if
+    else if (key = "up" or key = "down") and m.audioSection and m.audioRows.Count() = 0
         return true
     end if
     return false
 end function
 
-sub RefreshEntries()
-    code = ""
-    index = m.languages.itemFocused
-    if index >= 0 and index < m.groups.Count() then code = m.groups[index].code
-    RebuildLanguages()
-    for i = 0 to m.groups.Count() - 1
-        if m.groups[i].code = code
-            m.languages.jumpToItem = i
-            ShowLanguage(i)
-            return
-        end if
-    end for
+sub UpdateCounts()
+    subtitleCount = ""
+    audioCount = ""
+    if m.subtitleRows.Count() > 10 then subtitleCount = (m.subtitles.itemFocused + 1).ToStr() + " / " + m.subtitleRows.Count().ToStr()
+    if m.audioRows.Count() > 10 then audioCount = (m.audio.itemFocused + 1).ToStr() + " / " + m.audioRows.Count().ToStr()
+    m.top.FindNode("subtitleCount").text = subtitleCount
+    m.top.FindNode("audioCount").text = audioCount
+end sub
+
+sub ApplySectionLook()
+    t = Theme()
+    m.subtitles.visible = not m.audioSection
+    m.audio.visible = m.audioSection
+    m.top.FindNode("subtitleEmpty").visible = not m.audioSection
+    m.top.FindNode("audioEmpty").visible = m.audioSection
+    m.top.FindNode("subtitleCount").visible = not m.audioSection
+    m.top.FindNode("audioCount").visible = m.audioSection
+    m.top.FindNode("subtitleUnderline").visible = not m.audioSection
+    m.top.FindNode("audioUnderline").visible = m.audioSection
+    m.top.FindNode("subtitleHeading").color = t.textWhite
+    m.top.FindNode("audioHeading").color = t.mediaPanelMuted
+    if m.audioSection
+        m.top.FindNode("subtitleHeading").color = t.mediaPanelMuted
+        m.top.FindNode("audioHeading").color = t.textWhite
+    end if
 end sub

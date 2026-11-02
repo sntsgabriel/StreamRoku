@@ -105,3 +105,55 @@ function TrackPanelGroups(entries as object) as object
     end for
     return groups
 end function
+
+' Flatten language groups into direct choices without exposing native track
+' names, selectors or missing-format diagnostics. Keep every provider selectable.
+function TrackPanelRows(entries as dynamic, subtitles as boolean, words as object) as object
+    rows = []
+    if subtitles then rows.Push({ id: "", code: "", action: "off", label: TrackField(words, "off") })
+    if Type(entries) <> "roArray" then return rows
+    for each group in TrackPanelGroups(entries)
+        labels = {}
+        for each entry in group.entries
+            label = entry.language
+            description = LCase(entry.title)
+            if Instr(1, description, "cc") > 0 or Instr(1, description, "sdh") > 0
+                label = label + " (CC)"
+            else if Instr(1, description, "forced") > 0 or Instr(1, description, "forçad") > 0
+                label = label + " (" + TrackField(words, "forced") + ")"
+            end if
+            if group.entries.Count() > 1
+                provider = TrackField(entry, "provider")
+                format = TrackField(entry, "format")
+                if provider <> "" and provider <> TrackField(words, "embedded")
+                    label = label + " · " + provider
+                else if not subtitles and format <> "" and format <> TrackField(words, "unknownFormat")
+                    label = label + " · " + format
+                end if
+            end if
+            base = label
+            count = 1
+            if labels.DoesExist(base) then count = labels[base] + 1
+            labels[base] = count
+            if count > 1 then label = label + " (" + count.ToStr() + ")"
+            action = "audio"
+            if subtitles then action = "track"
+            rows.Push({ id: entry.id, code: entry.code, action: action, label: label })
+        end for
+    end for
+    return rows
+end function
+
+' Retain the browsed track when newly discovered languages reorder the list.
+function TrackPanelRestoreIndex(previous as object, rows as object, index as integer) as integer
+    if index >= 0 and index < previous.Count()
+        id = previous[index].id
+        for i = 0 to rows.Count() - 1
+            if rows[i].id = id then return i
+        end for
+    end if
+    if rows.Count() = 0 then return -1
+    if index < 0 then return 0
+    if index >= rows.Count() then return rows.Count() - 1
+    return index
+end function

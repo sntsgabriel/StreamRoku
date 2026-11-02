@@ -293,10 +293,14 @@ end function
 
 class Transport
     client as object
+    cacheNode as dynamic
+    cacheGeneration as integer
 
-    sub new(client = invalid as dynamic)
+    sub new(client = invalid as dynamic, cacheNode = invalid as dynamic, cacheGeneration = 0 as integer)
         if client = invalid then client = CreateSyncHttpClient()
         m.client = client
+        m.cacheNode = cacheNode
+        m.cacheGeneration = cacheGeneration
     end sub
 
     ' Percent-encode a value destined for a URL. Stores that assemble a URL call
@@ -316,6 +320,33 @@ class Transport
     function Get(url as string, headers = invalid as dynamic) as object
         return m.Result(m.client.request("GET", url, headers, invalid))
     end function
+
+    ' Called only by catalog/meta stores after resource-level validation.
+    ' Serialization/parsing remains in the worker, not in the shared node.
+    function CacheRead(key as string) as dynamic
+        if m.cacheNode = invalid then return invalid
+        try
+            text = m.cacheNode.callFunc("Read", key, m.cacheGeneration)
+            if text = "" then return invalid
+            result = ParseJson(text)
+            if Type(result) = "roAssociativeArray" and result.ok = true then return result
+        catch ignored
+            ' Cache failure must never prevent a normal network request.
+        end try
+        return invalid
+    end function
+
+    sub CacheWrite(key as string, result as object, ttl as integer)
+        if m.cacheNode = invalid then return
+        try
+            text = FormatJson(result)
+            ' Skip very large results before crossing the thread boundary.
+            if text.Len() > 131072 then return
+            m.cacheNode.callFunc("Write", key, text, ttl, m.cacheGeneration)
+        catch ignored
+            ' Best-effort optimization; retain the validated network result.
+        end try
+    end sub
 
     ' A GET whose body comes back as text instead of being parsed as JSON.
     '

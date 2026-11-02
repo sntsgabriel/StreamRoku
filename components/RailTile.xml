@@ -22,10 +22,15 @@
                 id="zoomInterp"
                 fieldToInterp="railGlyph.scale"
                 key="[0.0, 1.0]"
-                keyValue="[[1.0, 1.0], [1.35, 1.35]]" />
+                keyValue="[[1.0, 1.0], [1.15, 1.15]]" />
         </Animation>
 
-        <Rectangle id="railBorder" width="278" height="88">
+        <Animation id="labelAnimation" duration="0.18" repeat="false">
+            <FloatFieldInterpolator id="labelOpacityInterpolator" fieldToInterp="railLabel.opacity" key="[0, 1]" keyValue="[0, 1]" />
+        </Animation>
+        <Rectangle id="railBorder" width="332" height="88">
+            <!-- Active indicator: distinct vertical accent bar for the active navigation section -->
+            <Rectangle id="activeIndicator" width="4" height="36" translation="[4, 26]" visible="false" />
             <Poster
                 id="railGlyph"
                 width="42"
@@ -35,7 +40,7 @@
                 loadDisplayMode="limitSize"
                 scaleRotateCenter="[21, 21]"
                 translation="[16, 23]" />
-            <Label id="railLabel" translation="[72, 0]" width="202" height="88" vertAlign="center" font="font:SmallBoldSystemFont" />
+            <Label id="railLabel" opacity="0" translation="[72, 0]" width="250" height="88" vertAlign="center" font="font:SmallBoldSystemFont" />
         </Rectangle>
     </children>
 </component>

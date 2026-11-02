@@ -555,6 +555,7 @@ sub PushEpisode(season as integer, ep as object)
             background: m.meta.background
             episodeName: ep.name
             episodeOverview: ep.overview
+            meta: m.meta
         }
     }
 end sub

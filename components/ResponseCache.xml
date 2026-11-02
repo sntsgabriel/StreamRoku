@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="ResponseCache" extends="Group">
+    <interface>
+        <function name="GetGeneration" />
+        <function name="Read" />
+        <function name="Write" />
+        <function name="Clear" />
+        <function name="Stats" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/source/stores/ResponseCacheStore.bs" />
+    <script type="text/brightscript" uri="pkg:/components/ResponseCache.brs" />
+    <children>
+        <Timer id="pruneTimer" duration="60" repeat="true" />
+    </children>
+</component>

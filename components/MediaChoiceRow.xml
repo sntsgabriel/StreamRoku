@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MediaChoiceRow" extends="Group">
+    <interface>
+        <field id="width" type="float" onChange="UpdateLook" />
+        <field id="height" type="float" onChange="UpdateLook" />
+        <field id="itemContent" type="node" onChange="UpdateLook" />
+        <field id="itemHasFocus" type="boolean" onChange="UpdateLook" />
+        <field id="listHasFocus" type="boolean" onChange="UpdateLook" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/components/MediaChoiceRow.brs" />
+    <children>
+        <Rectangle id="face" height="60" width="564" visible="false" />
+        <Poster id="check" uri="pkg:/images/player-check.png" translation="[15, 15]" width="30" height="30" visible="false" />
+        <Label id="title" translation="[60, 0]" width="480" height="60" vertAlign="center">
+            <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="28" />
+        </Label>
+    </children>
+</component>

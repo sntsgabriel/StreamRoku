@@ -15,11 +15,11 @@
 ' field; playback state is surfaced through the status label so a broken stream
 ' is a message, not a black screen.
 '
-' Transport is the platform's: the Video runs with enableUI and enableTrickPlay
-' on, so OK/play-pause show the native pause screen, Left/Right and FF/RW use
-' the native seek/trick-play UI, and "*" opens Roku's Options overlay with its
-' certification-mandated captions dialog. The screen only owns the resolve
-' (pre-video) phase and teardown; Back records the position and pops.
+' Video owns playback, decoding and the native seek/options UI. Up/Down opens
+' PlayerControls, a sidebar with Back, audio/subtitles, restart and pause/resume.
+' Pausing opens those controls and reveals title/episode artwork after eight
+' idle seconds. The overlay temporarily hides native chrome and restores it
+' on dismissal; the existing Video/content and selected tracks stay in place.
 '
 ' Subtitle captions are fetched off-thread (SubtitleLoaderTask) from an add-on
 ' advertising the "subtitles" resource (OpenSubtitles v3 is the built-in, an
@@ -66,6 +66,11 @@ sub init()
     m.trackPanel.ObserveField("closeRequested", "onTrackPanelClosed")
     m.video.ObserveField("availableSubtitleTracks", "RefreshTrackPanel")
     m.video.ObserveField("availableAudioTracks", "RefreshTrackPanel")
+    m.playerControls = m.top.FindNode("playerControls")
+    m.playerControls.ObserveField("action", "onPlayerControlAction")
+    m.video.ObserveField("position", "UpdatePlayerProgress")
+    m.video.ObserveField("duration", "UpdatePlayerProgress")
+    m.controlsNativeUI = invalid
     m.status = m.top.FindNode("playerStatus")
     m.bufferingGroup = m.top.FindNode("bufferingGroup")
     m.logoBack = m.top.FindNode("logoBack")
@@ -87,6 +92,30 @@ sub init()
     ' is gone even if the Animation is a silent no-op on this OS.
     m.toastHideTimer = m.top.FindNode("toastHideTimer")
     if m.toastHideTimer <> invalid then m.toastHideTimer.ObserveField("fire", "onToastHideFire")
+
+    m.nextEpisodeGroup = m.top.FindNode("nextEpisodeGroup")
+    m.nextEpisodePlate = m.top.FindNode("nextEpisodePlate")
+    m.nextEpisodeTitle = m.top.FindNode("nextEpisodeTitle")
+    m.nextEpisodeSub = m.top.FindNode("nextEpisodeSub")
+    m.nextEpisodePlayBtn = m.top.FindNode("nextEpisodePlayBtn")
+    m.nextEpisodeCancelBtn = m.top.FindNode("nextEpisodeCancelBtn")
+    m.nextEpisodeTimer = m.top.FindNode("nextEpisodeTimer")
+    if m.nextEpisodePlayBtn <> invalid then m.nextEpisodePlayBtn.ObserveField("buttonSelected", "PlayNextEpisode")
+    if m.nextEpisodeCancelBtn <> invalid then m.nextEpisodeCancelBtn.ObserveField("buttonSelected", "DismissNextEpisode")
+    if m.nextEpisodeTimer <> invalid then m.nextEpisodeTimer.ObserveField("fire", "onNextEpisodeTimerFire")
+    if m.nextEpisodePlate <> invalid then m.nextEpisodePlate.color = t.scrim
+    if m.nextEpisodeTitle <> invalid then m.nextEpisodeTitle.color = t.accent
+    if m.nextEpisodeSub <> invalid then m.nextEpisodeSub.color = t.textPrimary
+    m.nextEpisodeData = invalid
+    m.nextEpisodeCountdown = 0
+    m.preferredAudioLanguage = "pt-BR"
+    m.preferredSubtitleLanguage = "pt-BR"
+    m.subtitlesEnabled = true
+    m.autoplayNext = true
+    m.lightMode = false
+    m.largeText = false
+    m.highContrastFocus = false
+    m.audioTrackApplied = false
 
     ' Observed here rather than in CreateVideo: this screen is a static child
     ' that survives every pop, so CreateVideo runs once per play and observing
@@ -138,12 +167,24 @@ function OnEnter(params as object) as void
     ' pull here is the one that matters.
     RefreshTexts()
     if params = invalid or params.stream = invalid then return
+    HidePlayerControls()
     m.playParams = params
+    if m.stores <> invalid and m.stores.settings <> invalid
+        m.preferredAudioLanguage = m.stores.settings.callFunc("SettingsGetPreferredAudioLanguage")
+        m.preferredSubtitleLanguage = m.stores.settings.callFunc("SettingsGetPreferredSubtitleLanguage")
+        m.subtitlesEnabled = m.stores.settings.callFunc("SettingsGetSubtitlesEnabled")
+        m.autoplayNext = m.stores.settings.callFunc("SettingsGetAutoplayNext")
+        m.lightMode = m.stores.settings.callFunc("SettingsGetLightMode")
+        m.largeText = m.stores.settings.callFunc("SettingsGetLargeText")
+        m.highContrastFocus = m.stores.settings.callFunc("SettingsGetHighContrastFocus")
+    end if
+    m.audioTrackApplied = false
+    DismissNextEpisode()
     m.captionButton.text = Lang("player", "captionButton")
     m.captionHint.text = Lang("player", "captionHint")
-    m.captionHint.visible = true
-    m.captionButton.visible = true
-    m.captionHintTimer.control = "start"
+    m.captionHint.visible = false
+    m.captionButton.visible = false
+    m.captionHintTimer.control = "stop"
     m.saved = false
     m.hasPlayed = false
     ' The per-play flags reset at the real per-play boundary. m.playStarted in
@@ -258,6 +299,11 @@ end function
 ' caption drain pushed pre-video work past the resolve; keep the boundary where
 ' the WORK ends, not where one subroutine happens to return.
 sub StartPreVideoPulse()
+    if m.lightMode
+        if m.logoBack <> invalid then m.logoBack.opacity = 0.8
+        if m.logoFront <> invalid then m.logoFront.visible = false
+        return
+    end if
     if m.preVideoPulse = invalid then return
     ' The pulse is logoBack alone — the front (reveal) copy is hidden so it can't
     ' sit solid on top and mask the beat. StopPreVideoPulse brings it back for the
@@ -856,7 +902,9 @@ sub onSubtitleResult()
     ' The built array is a snapshot of the raw list, so it has to be rebuilt
     ' before the newly appended tracks can reach the content node.
     m.subtitleNodesApplied = false
-    if firstTracks then m.subtitleIndex = m.subtitlePicker.PickTrack(m.subtitleTracks, DeviceLocale())
+    prefSub = DeviceLocale()
+    if m.preferredSubtitleLanguage <> invalid and m.preferredSubtitleLanguage <> "" then prefSub = m.preferredSubtitleLanguage
+    if firstTracks then m.subtitleIndex = m.subtitlePicker.PickTrack(m.subtitleTracks, prefSub, true)
 
     ' Everyone ranked is still worth asking, even though the list already has
     ' tracks in it.
@@ -961,7 +1009,7 @@ sub ApplySubtitleIndex(content as object)
     end if
 
     selected = SelectedSubtitleTrack()
-    if selected = ""
+    if selected = "" or not m.subtitlesEnabled
         content.subtitleConfig = {}
         SetCaptionMode("off")
         return
@@ -1344,6 +1392,7 @@ sub onVideoStateChanged()
     if m.video = invalid then return
     state = m.video.state
     if state = invalid then return
+    SyncPlayerControlsState()
     if state = "playing"
         m.hasPlayed = true
         m.status.text = ""
@@ -1380,7 +1429,104 @@ sub onVideoStateChanged()
         PublishWatchState()
     else if state = "finished" or state = "stopped"
         HideBuffering()
+        if state = "finished" then onVideoFinished()
     end if
+end sub
+
+sub onVideoFinished()
+    SavePosition()
+    if m.playParams = invalid then return
+    if m.playParams.metaType <> "series" then return
+    if m.stores = invalid or m.stores.episodes = invalid then return
+    meta = m.playParams.meta
+    season = ResolveOrdinal(m.playParams.season)
+    episode = ResolveOrdinal(m.playParams.episode)
+    if meta = invalid or meta.videos = invalid then return
+
+    nextEp = m.stores.episodes.callFunc("EpisodesNextEpisode", meta, season, episode)
+    if nextEp = invalid then return
+    if nextEp.found
+        m.nextEpisodeData = nextEp
+        ShowNextEpisodePrompt()
+    else if nextEp.isSeriesEnd
+        ShowSeriesEndNotice()
+    end if
+end sub
+
+sub ShowNextEpisodePrompt()
+    if m.nextEpisodeData = invalid then return
+    m.nextEpisodeTitle.text = Lang("player", "nextEpisode")
+    epTitle = "S" + m.nextEpisodeData.season.ToStr() + "E" + m.nextEpisodeData.episode.ToStr()
+    if m.nextEpisodeData.name <> "" then epTitle = epTitle + " - " + m.nextEpisodeData.name
+    m.nextEpisodeSub.text = epTitle
+    m.nextEpisodePlayBtn.text = Lang("player", "playNext")
+    m.nextEpisodeCancelBtn.text = Lang("common", "cancel")
+    m.nextEpisodePlayBtn.visible = true
+    m.nextEpisodeGroup.visible = true
+    m.nextEpisodePlayBtn.SetFocus(true)
+    if m.autoplayNext
+        m.nextEpisodeCountdown = 10
+        UpdateNextEpisodeCountdown()
+        m.nextEpisodeTimer.control = "start"
+    end if
+end sub
+
+sub onNextEpisodeTimerFire()
+    m.nextEpisodeCountdown = m.nextEpisodeCountdown - 1
+    if m.nextEpisodeCountdown <= 0
+        m.nextEpisodeTimer.control = "stop"
+        PlayNextEpisode()
+    else
+        UpdateNextEpisodeCountdown()
+    end if
+end sub
+
+sub UpdateNextEpisodeCountdown()
+    if m.nextEpisodeData = invalid then return
+    epTitle = "S" + m.nextEpisodeData.season.ToStr() + "E" + m.nextEpisodeData.episode.ToStr()
+    if m.nextEpisodeData.name <> "" then epTitle = epTitle + " - " + m.nextEpisodeData.name
+    cdText = epTitle + chr(10) + Fill(Lang("player", "nextEpisodeCountdown"), { seconds: m.nextEpisodeCountdown.ToStr() })
+    m.nextEpisodeSub.text = cdText
+end sub
+
+sub PlayNextEpisode()
+    if m.nextEpisodeData = invalid or m.playParams = invalid then return
+    m.nextEpisodeTimer.control = "stop"
+    m.nextEpisodeGroup.visible = false
+    m.top.pushRequest = {
+        screen: "streamsScreen"
+        params: {
+            addonAddress: m.playParams.addonAddress
+            metaType: "series"
+            metaId: m.playParams.metaId
+            videoId: m.nextEpisodeData.videoId
+            season: m.nextEpisodeData.season
+            episode: m.nextEpisodeData.episode
+            position: 0
+            name: m.playParams.name
+            poster: m.playParams.poster
+            posterShape: m.playParams.posterShape
+            logo: m.playParams.logo
+            background: m.playParams.background
+            episodeName: m.nextEpisodeData.name
+            meta: m.playParams.meta
+        }
+    }
+end sub
+
+sub DismissNextEpisode()
+    if m.nextEpisodeTimer <> invalid then m.nextEpisodeTimer.control = "stop"
+    if m.nextEpisodeGroup <> invalid then m.nextEpisodeGroup.visible = false
+    if m.top.screenActive and m.video <> invalid then m.video.SetFocus(true)
+end sub
+
+sub ShowSeriesEndNotice()
+    m.nextEpisodeTitle.text = Lang("player", "seriesEnd")
+    m.nextEpisodeSub.text = Lang("player", "seriesEndDesc")
+    m.nextEpisodePlayBtn.visible = false
+    m.nextEpisodeCancelBtn.text = Lang("common", "ok")
+    m.nextEpisodeGroup.visible = true
+    m.nextEpisodeCancelBtn.SetFocus(true)
 end sub
 
 ' True when the failure is this device's capability, not the network: the
@@ -1437,6 +1583,21 @@ end sub
 ' stack → stop + save + pop).
 function OnKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
+    if m.nextEpisodeGroup <> invalid and m.nextEpisodeGroup.visible
+        if key = "back"
+            DismissNextEpisode()
+            return false
+        end if
+        if key = "left" or key = "right"
+            if m.nextEpisodePlayBtn.HasFocus()
+                m.nextEpisodeCancelBtn.SetFocus(true)
+                return true
+            else if m.nextEpisodeCancelBtn.HasFocus()
+                if m.nextEpisodePlayBtn.visible then m.nextEpisodePlayBtn.SetFocus(true)
+                return true
+            end if
+        end if
+    end if
     if m.captionButton.HasFocus()
         if key = "back" or key = "up"
             m.video.SetFocus(true)
@@ -1533,6 +1694,8 @@ sub ResetVideoNode()
     ' anyway — that is onVideoStateChanged's "The player could not start." — but
     ' it must not also inherit stale text on the way there.
     m.status.text = ""
+    HidePlayerControls()
+    DismissNextEpisode()
     if m.video = invalid then return
     CloseCaptionMenu()
     m.captionHintTimer.control = "stop"
@@ -1663,11 +1826,7 @@ end sub
 ' These controls change only Video's documented live caption selectors.
 ' They never rewrite the playing ContentNode or append late subtitle tracks.
 sub ShowCaptionControls()
-    if not m.top.screenActive or m.video = invalid then return
-    m.captionHintTimer.control = "stop"
-    m.captionHint.visible = true
-    m.captionButton.visible = true
-    m.captionButton.SetFocus(true)
+    ShowPlayerControls()
 end sub
 
 sub HideCaptionHint()
@@ -1678,7 +1837,19 @@ end sub
 
 sub ShowCaptionMenu()
     if m.video = invalid then return
+    HidePlayerControls()
     RefreshTrackPanel()
+    m.captionHintTimer.control = "stop"
+    m.captionButton.visible = false
+    m.captionHint.visible = false
+    ' Keep the live video beside the options; restore the exact viewport on close.
+    if not m.trackPanel.visible
+        m.trackViewport = { translation: m.video.translation, width: m.video.width, height: m.video.height, enableUI: m.video.enableUI }
+    end if
+    m.video.enableUI = false
+    m.video.translation = [72, 222]
+    m.video.width = 1128
+    m.video.height = 636
     m.trackPanel.callFunc("Open")
 end sub
 
@@ -1686,7 +1857,7 @@ sub RefreshTrackPanel()
     if m.video = invalid then return
     words = {}
     ' Screen's Lang helper is the authority for the active UI language.
-    keys = ["subtitles", "audio", "languages", "tracks", "details", "close", "off", "on", "hint", "noSubtitles", "noAudio", "unknownFormat", "embedded", "addon", "und", "pt-BR", "pt", "en", "es", "fr", "de", "it", "ja", "ko", "zh", "ru", "ar", "hi", "hr", "nl", "ro", "sl"]
+    keys = ["subtitles", "audio", "languages", "tracks", "details", "close", "off", "on", "hint", "noSubtitles", "noAudio", "unknownFormat", "embedded", "addon", "und", "pt-BR", "pt", "en", "es", "fr", "de", "it", "ja", "ko", "zh", "ru", "ar", "hi", "hr", "nl", "ro", "sl", "alb", "bul", "cze", "ces", "forced", "panelTitle", "tabHint"]
     for each key in keys
         words[key] = Lang("tracks", key)
     end for
@@ -1699,6 +1870,53 @@ sub RefreshTrackPanel()
     if TrackText(m.video.currentAudioTrack) <> "" then m.trackPanel.currentAudio = TrackText(m.video.currentAudioTrack)
     m.trackPanel.captionsEnabled = m.video.globalCaptionMode <> "Off"
     if m.trackPanel.visible then m.trackPanel.callFunc("RefreshEntries")
+    ApplyPreferredAudioTrack()
+end sub
+
+sub ApplyPreferredAudioTrack()
+    if m.audioTrackApplied then return
+    if m.video = invalid or not m.video.HasField("audioTrack") or not m.video.HasField("availableAudioTracks") then return
+    tracks = m.video.availableAudioTracks
+    if tracks = invalid or Type(tracks) <> "roArray" or tracks.Count() <= 1 then return
+    target = ""
+    if m.preferredAudioLanguage <> invalid and m.preferredAudioLanguage <> "" then target = m.preferredAudioLanguage
+    if target = "" then return
+
+    chosenTrack = ""
+    for each track in tracks
+        if Type(track) <> "roAssociativeArray" then continue for
+        trackLang = ""
+        if track.Language <> invalid then trackLang = track.Language
+        id = ""
+        if track.Track <> invalid then id = track.Track
+        if id = "" then continue for
+        code = TrackLanguageCode(trackLang)
+        if code = target
+            chosenTrack = id
+            exit for
+        end if
+    end for
+
+    if chosenTrack = "" and target = "pt-BR"
+        for each track in tracks
+            if Type(track) <> "roAssociativeArray" then continue for
+            trackLang = ""
+            if track.Language <> invalid then trackLang = track.Language
+            id = ""
+            if track.Track <> invalid then id = track.Track
+            if id = "" then continue for
+            code = TrackLanguageCode(trackLang)
+            if code = "pt"
+                chosenTrack = id
+                exit for
+            end if
+        end for
+    end if
+
+    if chosenTrack <> ""
+        m.audioTrackApplied = true
+        if chosenTrack <> TrackText(m.video.audioTrack) then m.video.audioTrack = chosenTrack
+    end if
 end sub
 
 sub onTrackPanelChoice()
@@ -1708,15 +1926,34 @@ sub onTrackPanelChoice()
     if choice.action = "off"
         SetCaptionMode("off")
         m.trackPanel.captionsEnabled = false
+        m.subtitlesEnabled = false
+        if m.stores <> invalid and m.stores.settings <> invalid
+            m.stores.settings.callFunc("SettingsSetSubtitlesEnabled", false)
+        end if
     else if choice.action = "on" or choice.action = "track"
         if choice.track <> "" then SelectSubtitleTrack(choice.track)
         SetCaptionMode("on")
         m.trackPanel.captionsEnabled = true
+        m.subtitlesEnabled = true
         if choice.track <> "" then m.trackPanel.currentSubtitle = choice.track
+        if m.stores <> invalid and m.stores.settings <> invalid
+            m.stores.settings.callFunc("SettingsSetSubtitlesEnabled", true)
+            if choice.code <> invalid and choice.code <> "" and choice.code <> "und"
+                m.preferredSubtitleLanguage = choice.code
+                m.stores.settings.callFunc("SettingsSetPreferredSubtitleLanguage", choice.code)
+            end if
+        end if
     else if choice.action = "audio"
         if choice.track <> "" and m.video.HasField("audioTrack")
+            m.audioTrackApplied = true
             m.video.audioTrack = choice.track
             m.trackPanel.currentAudio = choice.track
+            if m.stores <> invalid and m.stores.settings <> invalid
+                if choice.code <> invalid and choice.code <> "" and choice.code <> "und"
+                    m.preferredAudioLanguage = choice.code
+                    m.stores.settings.callFunc("SettingsSetPreferredAudioLanguage", choice.code)
+                end if
+            end if
         end if
     end if
     m.trackPanel.callFunc("RefreshSelection")
@@ -1724,11 +1961,123 @@ end sub
 
 sub onTrackPanelClosed()
     CloseCaptionMenu()
-    if m.top.screenActive and m.video <> invalid then m.video.SetFocus(true)
+    if m.top.screenActive and m.video <> invalid
+        if m.video.state = "paused" then ShowPlayerControls() else m.video.SetFocus(true)
+    end if
 end sub
 
 sub CloseCaptionMenu()
     m.trackPanel.callFunc("DismissPanel")
+    if m.video <> invalid and m.trackViewport <> invalid
+        m.video.translation = m.trackViewport.translation
+        m.video.width = m.trackViewport.width
+        m.video.height = m.trackViewport.height
+        m.video.enableUI = m.trackViewport.enableUI
+        m.trackViewport = invalid
+    end if
     m.captionButton.visible = false
     m.captionHint.visible = false
+end sub
+
+' The native Video retains transport/decoding. This overlay only owns the
+' sidebar and delayed pause artwork, and restores enableUI before yielding.
+sub ShowPlayerControls()
+    if not m.top.screenActive or m.video = invalid then return
+    if m.video.state <> "playing" and m.video.state <> "paused" then return
+    if m.trackPanel.visible then return
+    m.captionHintTimer.control = "stop"
+    m.captionHint.visible = false
+    m.captionButton.visible = false
+    if m.controlsNativeUI = invalid then m.controlsNativeUI = m.video.enableUI
+    m.video.enableUI = false
+    words = {}
+    for each key in ["back", "captions", "restart", "resume", "pause", "controls", "paused", "controlsHint", "pausePrompt"]
+        words[key] = Lang("player", key)
+    end for
+    m.playerControls.words = words
+    m.playerControls.mediaTitle = TrackField(m.playParams, "name")
+    m.playerControls.logo = TrackField(m.playParams, "logo")
+    episode = TrackField(m.playParams, "episodeName")
+    season = ResolveOrdinal(m.playParams.season)
+    number = ResolveOrdinal(m.playParams.episode)
+    if number > 0
+        marker = Fill(Lang("common", "episodeMarker"), {season: season.ToStr(), episode: number.ToStr()})
+        if episode <> "" then marker = marker + " · " + episode
+        episode = marker
+    end if
+    m.playerControls.episodeText = episode
+    m.playerControls.paused = m.video.state = "paused"
+    UpdatePlayerProgress()
+    m.playerControls.callFunc("Open")
+end sub
+
+sub HidePlayerControls()
+    if m.playerControls <> invalid then m.playerControls.callFunc("Dismiss")
+    if m.video <> invalid and m.controlsNativeUI <> invalid
+        m.video.enableUI = m.controlsNativeUI
+        m.controlsNativeUI = invalid
+    end if
+end sub
+
+sub UpdatePlayerProgress()
+    if m.video = invalid or m.playerControls = invalid then return
+    position = m.video.position
+    duration = m.video.duration
+    if position = invalid then position = 0
+    if duration = invalid then duration = 0
+    m.playerControls.position = position
+    m.playerControls.duration = duration
+end sub
+
+sub SyncPlayerControlsState()
+    if m.video.state = "paused"
+        if m.top.screenActive and not m.trackPanel.visible
+            ' Repeated native state notifications must not restart the pause wait.
+            if not m.playerControls.visible or not m.playerControls.paused then ShowPlayerControls()
+        end if
+    else
+        visible = m.playerControls.visible
+        HidePlayerControls()
+        if visible and m.top.screenActive and not m.trackPanel.visible then m.video.SetFocus(true)
+    end if
+end sub
+
+sub onPlayerControlAction()
+    if not m.top.screenActive or m.video = invalid then return
+    action = m.playerControls.action
+    wasPaused = m.video.state = "paused"
+    HidePlayerControls()
+    if action = "back"
+        m.top.pushRequest = { screen: "back" }
+    else if action = "captions"
+        ShowCaptionMenu()
+    else if action = "restart"
+        RestartFromBeginning()
+    else if action = "toggle"
+        m.video.SetFocus(true)
+        if wasPaused then m.video.control = "resume" else m.video.control = "pause"
+    else if action = "left" or action = "right" or action = "rewind" or action = "fastforward" or action = "replay"
+        offset = 10
+        if action = "left" or action = "rewind" or action = "replay" then offset = -10
+        if action = "fastforward" then offset = 30
+        if action = "rewind" then offset = -30
+        target = m.video.position + offset
+        if target < 0 then target = 0
+        if m.video.duration > 0 and target > m.video.duration then target = m.video.duration
+        m.video.SetFocus(true)
+        m.video.seek = target
+        if wasPaused then m.video.control = "resume"
+    else
+        m.video.SetFocus(true)
+    end if
+end sub
+
+sub RestartFromBeginning()
+    if m.video = invalid then return
+    if m.video.state <> "playing" and m.video.state <> "paused" then return
+    DismissNextEpisode()
+    m.video.SetFocus(true)
+    ' Seek on the existing pump preserves the active audio and subtitle tracks.
+    m.video.seek = 0
+    if m.video.state = "paused" then m.video.control = "resume"
 end sub

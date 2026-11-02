@@ -105,6 +105,7 @@ Harness_Equal(m.video.subtitleTrack, "mkv/por1", "empty selection leaves the act
 m.trackPanel.choice = {action: "audio", track: "audio/pt"}
 onTrackPanelChoice()
 Harness_Equal(m.video.audioTrack, "audio/pt", "audio selection uses the actual audio identifier")
+Harness_Equal(m.audioTrackApplied, true, "manual audio is protected from later automatic preference updates")
 Harness_Equal(m.video.subtitleTrack, "mkv/por1", "audio selection preserves subtitles")
 m.video.globalCaptionMode = "Off"
 m.trackPanel.choice = {action: "on", track: "mkv/por1"}
@@ -116,13 +117,30 @@ Harness_Equal(m.top.captionControlsRequested, true, "caption button request reac
 Harness_Equal(CaptionVideoKeyEvent("options", true), false, "native Roku options remain available")
 Harness_Equal(CaptionVideoKeyEvent("back", true), false, "native back handling is preserved")
 Harness_Equal(CaptionVideoKeyEvent("down", false), false, "key release does not reopen controls")
+m.top={state:"playing",control:"unchanged",captionControlsRequested:false}
+Harness_Equal(CaptionVideoKeyEvent("OK",true),true,"center OK is handled during playback")
+Harness_Equal(m.top.control,"pause","center OK pauses the actual Video node")
+m.top.control="unchanged"
+Harness_Equal(CaptionVideoKeyEvent("OK",false),false,"OK release does not toggle a second time")
+Harness_Equal(m.top.control,"unchanged","releasing center button preserves pause command")
+m.top.state="paused"
+Harness_Equal(CaptionVideoKeyEvent("OK",true),true,"center OK is handled when paused")
+Harness_Equal(m.top.control,"resume","center OK resumes without restarting content")
+for each state in ["buffering","error","finished","stopped"]
+ m.top.state=state : m.top.control="unchanged"
+ Harness_Equal(CaptionVideoKeyEvent("OK",true),false,"OK outside playing/paused falls through to native handling")
+ Harness_Equal(m.top.control,"unchanged","OK does not issue pause/resume in a terminal or buffering state")
+end for
+m.top.state="playing" : m.top.control="unchanged"
+Harness_Equal(CaptionVideoKeyEvent("play",true),false,"dedicated Play button retains native handling")
+Harness_Equal(CaptionVideoKeyEvent("right",true),false,"native seek retains its key handling")
 print "Assertions passed:"; m.passed; " failed:"; m.failed
 if m.failed = 0 then print "INTERACTION PASS" else print "INTERACTION FAIL"
 `;
 const target = path.join(root,'work','interaction-run.brs');
 fs.mkdirSync(path.dirname(target),{recursive:true});
 fs.writeFileSync(target, fs.readFileSync(path.join(root,'tests','harness.brs'),'utf8')+'\n'+mocks+'\n'+handlers+'\n'+scenarios);
-const result=spawnSync(path.join(root,'node_modules','.bin','brs'),['--root',path.join(root,'work'),target],{encoding:'utf8',cwd:root});
+const result=spawnSync(path.join(root,'node_modules/.bin/brs'),['--root',path.join(root,'work'),target],{encoding:'utf8',cwd:root});
 process.stdout.write(result.stdout || '');
 process.stderr.write(result.stderr || '');
 if(result.status!==0 || !(result.stdout||'').includes('INTERACTION PASS'))process.exit(1);
