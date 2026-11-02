@@ -26,6 +26,7 @@ sub init()
     m.lastPacketKey = ""
     m.pendingWatchState = invalid
     m.pendingWatchedChange = invalid
+    m.pendingHomeEdits = []
     m.pendingLibraryChange = invalid
 end sub
 
@@ -55,6 +56,14 @@ sub OnWatchStateUpdate()
 end sub
 
 ' Details' add/remove toggle: retain only the newest pending membership change.
+sub OnHomeEdit(change as dynamic)
+    if m.storeHost = invalid or change = invalid then return
+    if m.storeHost.callFunc("AuthGetSession") <> "stremio" then return
+    if m.pendingWatchState <> invalid and m.pendingWatchState.metaId = change.metaId then m.pendingWatchState = invalid
+    m.pendingHomeEdits.Push(change)
+    Pump()
+end sub
+
 sub OnLibraryChange(change as dynamic)
     if m.storeHost = invalid then return
     if m.storeHost.callFunc("AuthGetSession") <> "stremio" then return
@@ -114,6 +123,11 @@ end sub
 ' Highest priority first: a fresh position supersedes stale positions; then
 ' watched marks; then membership changes. Each slot holds only unstarted work.
 function NextWrite() as dynamic
+    while m.pendingHomeEdits <> invalid and m.pendingHomeEdits.Count() > 0
+        packet = m.pendingHomeEdits.Shift()
+        item = m.storeHost.callFunc("LibraryBuildHomeActionItem", packet)
+        if item <> invalid then return { item: item, kind: "homeEdit" }
+    end while
     if m.pendingWatchState <> invalid
         packet = m.pendingWatchState
         m.pendingWatchState = invalid

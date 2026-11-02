@@ -285,6 +285,22 @@ class StremioLibraryCodec
     ' removed:true/temp:false — the id stays in the account library marked
     ' removed, so re-adding later is the same item with removed:false. `now` is
     ' the caller-stamped ISO timestamp (the store mints it via TimeUtil).
+    ' Home actions preserve membership, duration, bitfields and unknown fields.
+    function BuildHomeActionItem(sessionType as string, library as object, now as string, packet as object) as dynamic
+        if sessionType <> "stremio" then return invalid
+        if packet.metaId = invalid or packet.metaId = "" then return invalid
+        if packet.action <> "removeContinue" and packet.action <> "markWatched" then return invalid
+        identity = m.Identity(packet.name, packet.metaType, packet.poster, packet.posterShape)
+        item = m.ResolveLibraryItem(library, packet.metaId, now, identity)
+        item.state.timeOffset = 0
+        if packet.action = "markWatched"
+            item.state.flaggedWatched = 1
+            item.state.lastWatched = now
+        end if
+        item._mtime = now
+        return item
+    end function
+
     function BuildLibraryChangeItem(sessionType as string, library as object, now as string, metaId as string, metaType as string, name as string, poster as string, added as boolean) as dynamic
         if sessionType <> "stremio" then return invalid
         if metaId = "" then return invalid

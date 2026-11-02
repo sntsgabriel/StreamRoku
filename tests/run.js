@@ -21,6 +21,8 @@ async function writeCombinedScript() {
     const fs = require('fs');
     const parts = [
         'tests/harness.brs',
+        'tests/homefeatures.test.brs',
+        'source/util/HomeLayout.brs',
         'tests/mocks.brs',
         'components/NetDiagTask.brs',
         'tests/screenstack.test.brs',
@@ -4858,6 +4860,7 @@ const ADDON_PAYLOAD_ROOTS = [
 // point of the check, and it fails both ways the moment a real payload field is
 // listed here by mistake... which is to say: read the reason before adding one.
 const ADDON_TEXT_READ_EXCEPTIONS = {
+    timeUnit: "our own progress-record provenance (Roku seconds or account milliseconds), never an add-on payload field",
     state: "Roku Video native playback state; never an add-on JSON payload",
     globalCaptionMode: "Roku Video native caption-mode field; never an add-on JSON payload",
     address: 'our own record field — the transport base derived from a URL the app validated, never an add-on manifest value',

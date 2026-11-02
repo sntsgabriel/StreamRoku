@@ -6,6 +6,7 @@
         <function name="SetStoreHost" />
         <function name="OnWatchStateUpdate" />
         <function name="OnLibraryChange" />
+        <function name="OnHomeEdit" />
         <function name="OnWatchedChange" />
     </interface>
 

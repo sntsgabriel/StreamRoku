@@ -5,6 +5,7 @@
         <field id="cacheGeneration" type="integer" value="0" />
         <field id="addonAddress" type="string" value="" />
         <field id="metaType" type="string" value="" />
+        <field id="requestGeneration" type="integer" value="0" />
         <field id="metaId" type="string" value="" />
         <field id="result" type="assocarray" alwaysNotify="true" />
     </interface>

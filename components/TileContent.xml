@@ -12,6 +12,7 @@
 <component name="TileContent" extends="ContentNode">
     <interface>
         <!-- PosterTile / ChipTile: continue-watching bar fraction (0..1). -->
+        <field id="resumeInfo" type="string" />
         <field id="progress" type="float" />
         <!-- PosterTile: watched badge, "eye" | "clock". -->
         <field id="watchedGlyph" type="string" />

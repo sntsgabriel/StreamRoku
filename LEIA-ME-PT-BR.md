@@ -1,8 +1,34 @@
+## Ajuste do topo da Home — 0.2.6
+
+- Área do logotipo ampliada de 420 × 64 para 540 × 160, preservando a proporção da imagem.
+- Mais margem acima do destaque e espaçamento próprio para metadados, sinopse de até duas linhas e progresso.
+- Cartazes começam mais abaixo, com posição fixa durante a navegação entre fileiras e o carregamento dos metadados.
+- Pacote: `dist/rokumio-client.zip`. Aparência final pendente de conferência na TV física.
+
+## Ações rápidas, progresso e personalização da Home
+
+- Com um cartaz selecionado, pressione `*` para salvar/remover da biblioteca, marcar como assistido ou remover de Continuar assistindo. Para séries, a opção informa que marca a série inteira. Remover de Continuar assistindo mantém o título salvo na biblioteca.
+- O destaque do item selecionado em Continuar assistindo mostra temporada/episódio e minutos restantes quando a duração é conhecida. O cálculo distingue os segundos locais da Roku dos milissegundos recebidos da conta.
+- Abra **Personalizar início** pelo menu lateral ou pelo menu `*` do título. É possível mostrar/ocultar fileiras, mover para cima/baixo, ocultar catálogos com a mesma lista de conteúdos e restaurar o padrão. As escolhas persistem no aparelho.
+- Catálogos são identificados por complemento, tipo e ID; a preferência não depende da ordem em que terminam de carregar. Fileiras ocultas continuam disponíveis no editor. Mesmo com todas ocultas, o menu lateral permite restaurá-las.
+- Alterações de biblioteca e estado de assistido usam a fila existente de sincronização nas contas Stremio. A personalização da Home é local. O botão Voltar fecha cada nível do editor e retorna ao catálogo/menu.
+
+## Ajustes da tela inicial e das seções
+
+- Continuar assistindo recupera fundo, logotipo e sinopse mesmo para itens antigos do histórico. Reutiliza dados de catálogos já carregados ou consulta os metadados ao selecionar o título. O cartaz é usado como fundo durante a consulta e se a imagem horizontal falhar. Respostas atrasadas não substituem o título em foco; o progresso salvo é preservado.
+
+- Séries e Filmes respeitam o tipo enviado pelo menu e exibem títulos e catálogos próprios. Alternar de seção limpa os resultados anteriores; voltar dos detalhes preserva filtros e posição. Uma seção sem catálogo compatível permanece vazia, sem mostrar conteúdo da outra.
+- Perfil com fonte menor e altura reservada, ícones diferentes para Início/Séries/Filmes e mais espaço entre cabeçalho e navegação.
+- A tela inicial não tem botões acima dos cartazes. OK no cartaz abre seus detalhes; a navegação permanece entre catálogo e menu lateral. A primeira fileira fica abaixo da área reservada ao logotipo e às informações do título.
+- Exploração com margens laterais simétricas para manter a última coluna dentro da tela.
+
+A validação local inclui testes de troca de seção, retorno dos detalhes, ausência de catálogo e ações do destaque. A aparência e o foco ainda precisam ser conferidos na TV física.
+
 # Rokumio com português brasileiro e melhorias de interface
 
 Código local: `/home/gabriel/rokumio`.
 Base: gpratoe/rokumio-client, revisão `1202ca5883e054becd12d8ae826d5b9e2afe61e0`.
-Versão do pacote Roku: 0.2.5 (build local). Projeto independente, sem vínculo oficial com o Stremio.
+Versão do pacote Roku: 0.2.6 (build local). Projeto independente, sem vínculo oficial com o Stremio.
 
 ## Cache leve de catálogos e detalhes
 

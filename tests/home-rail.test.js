@@ -1,8 +1,16 @@
 const fs=require('fs');const path=require('path');const {spawnSync}=require('child_process');
 const root=path.resolve(__dirname,'..');
 function extract(file,name){const s=fs.readFileSync(path.join(root,file),'utf8');const found=s.match(new RegExp(`^(?:sub|function) ${name}\\([^]*?^end (?:sub|function)`,'mi'));if(!found)throw Error(name);return found[0];}
-const source=[...['SetHomeFocus','SetRailExpanded','ApplyRailWidth','OnBackPressed','ApplyCatalogRow'].map(n=>extract('components/HomeScreen.brs',n)),extract('components/HomeScreen.brs','onKeyEvent').replace('onKeyEvent(','HomeKeyEvent('),...['MenuExpanded','onMenuExpanded','UpdateLook'].map(n=>extract('components/RailTile.brs',n))].join('\n');
+const source=[...['SetHomeFocus','SetRailExpanded','ApplyRailWidth','OnBackPressed','ApplyCatalogRow','RenderHomeHero'].map(n=>extract('components/HomeScreen.brs',n)),extract('components/HomeScreen.brs','onKeyEvent').replace('onKeyEvent(','HomeKeyEvent('),...['MenuExpanded','onMenuExpanded','UpdateLook'].map(n=>extract('components/RailTile.brs',n))].join('\n');
 const mocks=`
+function StringOf(value as dynamic) as string
+ if value=invalid then return ""
+ return value.ToStr()
+end function
+sub OpenHomeActions()
+ m.contextOpened=true
+end sub
+
 function Theme() as object
  return {screenBg:"black",accent:"accent_green",accentFocus:"green",textSecondary:"gray",accentClear:"clear",textPrimary:"white"}
 end function
@@ -62,7 +70,8 @@ Harness_Equal(m.catalog.content.marker,"same catalog","toggle does not replace c
 Harness_Equal(m.catalog.rowItemFocused[0],1,"toggle preserves catalog row")
 Harness_Equal(m.catalog.rowItemFocused[1],3,"toggle preserves selected film")
 HomeKeyEvent("options",true)
-Harness_Equal(m.focus.current,"rail","Options shortcut opens menu")
+Harness_Equal(m.contextOpened,true,"Options shortcut opens title actions")
+SetHomeFocus(true)
 Harness_Equal(OnBackPressed(),true,"Back closes menu before exiting Home")
 Harness_Equal(m.focus.current,"catalog","Back restores catalog focus")
 Harness_Equal(OnBackPressed(),false,"Back in catalog retains normal app exit flow")
@@ -108,6 +117,14 @@ m.catalog={content:{rows:[],GetChildCount:function() : return m.rows.Count() : e
 ApplyCatalogRow({index:0,title:"Popular",metaType:"movie",addonAddress:"example",metas:[]})
 Harness_Equal(m.gridRows[0].title,"Popular","streamed catalog retains the task title")
 Harness_Equal(m.catalog.content.rows[0].title,"Popular","catalog node receives a visible title")
+m.rawMeta={id:"tt123",type:"movie",name:"Full catalog metadata",poster:"poster.jpg"}
+m.gridRows=[{source:"catalog",addonAddress:"example",metas:[m.rawMeta]}]
+heroItem={title:"Full catalog metadata",description:"",background:""}
+heroRow={item:heroItem,GetChild:function(index) : return m.item : end function}
+m.catalog={rowItemFocused:[0,0],content:{row:heroRow,GetChild:function(index) : return m.row : end function}}
+m.heroTitle={} : m.heroDesc={}
+RenderHomeHero(heroItem)
+Harness_Equal(m.heroDesc.text,"","missing synopsis leaves a clean hero area")
 print "Assertions passed:";m.passed;" failed:";m.failed
 if m.failed=0 then print "HOME RAIL PASS" else print "HOME RAIL FAIL"
 `;

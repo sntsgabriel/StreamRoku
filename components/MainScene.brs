@@ -10,6 +10,8 @@ sub init()
 
     m.homeScreen = m.top.FindNode("homeScreen")
     m.homeScreen.ObserveField("pushRequest", "onHomeAction")
+    m.homeScreen.ObserveField("libraryChange", "onHomeLibraryChange")
+    m.homeScreen.ObserveField("homeEdit", "onHomeEdit")
 
     ' AuthScreen publishes the first-run choice (continue as guest, or log in
     ' with Stremio). The Scene signs the session in, points the session-aware
@@ -273,6 +275,14 @@ end sub
 ' write.
 sub onWatchStateUpdate()
     if m.libraryWriteCoordinator <> invalid then m.libraryWriteCoordinator.callFunc("OnWatchStateUpdate")
+end sub
+
+sub onHomeLibraryChange()
+    if m.libraryWriteCoordinator <> invalid then m.libraryWriteCoordinator.callFunc("OnLibraryChange", m.homeScreen.libraryChange)
+end sub
+
+sub onHomeEdit()
+    if m.libraryWriteCoordinator <> invalid then m.libraryWriteCoordinator.callFunc("OnHomeEdit", m.homeScreen.homeEdit)
 end sub
 
 sub onLibraryChange()

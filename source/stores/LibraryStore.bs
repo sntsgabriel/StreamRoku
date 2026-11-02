@@ -188,6 +188,8 @@ class LibraryStore
         if not parsed.inProgress then return
         if m.IsChannelType(parsed.metaType) then return
         m.SetPosition(parsed.videoId, parsed.metaId, parsed.metaType, parsed.season, parsed.episode, parsed.name, parsed.poster, parsed.position, parsed.duration, parsed.posterShape)
+        if m.positions.Count() > 0 then m.positions[0].timeUnit = "milliseconds"
+        m.Save()
     end sub
 
     ' The cached account item for a meta, or invalid when the account library has
@@ -353,6 +355,7 @@ class LibraryStore
             name: name
             poster: poster
             posterShape: posterShape
+            timeUnit: "seconds"
             position: position
             duration: duration
         })
@@ -701,6 +704,7 @@ class LibraryStore
     ' and can see every non-special episode is watched.
     sub MarkSeriesDone(metaId as string)
         if metaId = "" then return
+        if m.HasKey(m.unwatched, metaId) then m.unwatched.Delete(metaId)
         if m.HasKey(m.watched, metaId) then return
         m.watched[metaId] = true
         m.Save()
@@ -925,6 +929,7 @@ class LibraryStore
                     name: entry.name
                     poster: entry.poster
                     posterShape: entry.posterShape
+                    timeUnit: "milliseconds"
                     position: entry.position
                     duration: entry.duration
                 })
@@ -979,6 +984,12 @@ class LibraryStore
     ' account bitfield indexes and the badges are painted from — plus the meta
     ' identity, so a series the account has never seen still lands as a
     ' well-formed entry (which the later add-to-library push then clones).
+    function BuildHomeActionItem(packet as object) as dynamic
+        item = m.stremioCodec.BuildHomeActionItem(m.sessionType, m.stremioLibrary, m.time.NowIso(), packet)
+        m.CommitStremioItem(item)
+        return item
+    end function
+
     function BuildWatchedStateItem(packet as dynamic, now = "" as string) as dynamic
         if m.sessionType <> "stremio" then return invalid
         if packet = invalid then return invalid

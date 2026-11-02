@@ -35,17 +35,16 @@ sub init()
     m.grid.ObserveField("itemFocused", "onGridFocused")
 
     m.chunk = 6
-    ' The grid's row budget: the RowList spans x 150..1930 (translation 150 + the
-    ' itemSize width 1780 in DiscoverScreen.xml), with an 18px gap between tiles
-    ' (rowItemSpacing). A row of cells must fit this or the RowList scrolls that
-    ' row horizontally — see UpdateGrid.
-    m.rowWidth = 1780
+    ' Symmetric 96px safe margins; six portrait cells fit without clipping
+    ' the final column. Keep this width in sync with DiscoverScreen.xml.
+    m.rowWidth = 1728
     m.rowGap = 18
     m.sources = []
     m.sourcesSignature = ""
     m.sourcesTask = invalid
     m.selectedCatalog = invalid
     m.typeKey = ""
+    m.routeType = ""
     m.genre = ""
     m.metas = []
     m.loaded = false
@@ -58,7 +57,10 @@ function OnEnter(params as object) as void
     ' the subtitle live in the markup as the English default, and the table
     ' decides what is shown.
     RefreshTexts()
-    m.top.FindNode("discoverTitle").text = Lang("discover", "title")
+    ApplyRoute(params)
+    title = Lang("discover", "title")
+    if m.routeType <> "" then title = TypeLabel(m.routeType)
+    m.top.FindNode("discoverTitle").text = title
     m.top.FindNode("discoverSub").text = Lang("discover", "subtitle")
     if m.filterBar.callFunc("IsMenuOpen") then m.filterBar.callFunc("HideMenu")
 
@@ -75,6 +77,24 @@ function OnEnter(params as object) as void
 
     EnsureSources()
 end function
+
+' Only a new push supplies route params; Details -> Back supplies invalid and
+' must preserve the current catalog, genre and grid position.
+sub ApplyRoute(params as dynamic)
+    if params = invalid then return
+    requestedType = ""
+    if params.type = "movie" or params.type = "series" then requestedType = params.type
+    if requestedType = m.routeType then return
+    CancelLoad()
+    CancelSources()
+    m.routeType = requestedType
+    m.typeKey = requestedType
+    m.selectedCatalog = invalid
+    m.genre = ""
+    m.header.text = ""
+    m.status.text = ""
+    ResetDiscover()
+end sub
 
 function OnExit() as void
     CancelLoad()
@@ -203,6 +223,7 @@ function TypeGroups() as object
             if caps = invalid or not caps.feed then continue for
             key = TypeKey(descriptor.type)
             if key = "" then continue for
+            if m.routeType <> "" and key <> m.routeType then continue for
             if seen.DoesExist(key) then continue for
             seen[key] = true
             if TypeOrder(key) >= 3 then otherKeys.Push(key)
@@ -375,6 +396,7 @@ function SelectDefaults() as boolean
 end function
 
 sub ShowEmpty()
+    m.header.text = ""
     m.status.text = Lang("discover", "noCatalogAddons")
     m.filterBar.callFunc("SetChips", [])
 end sub
@@ -759,7 +781,7 @@ function onKeyEvent(key as string, press as boolean) as boolean
     if key = "options" and m.grid.HasFocus()
         m.filterBar.callFunc("FocusChips")
         return true
-    else if key = "down" and m.filterBar.callFunc("FocusIsOnChips")
+    else if key = "down" and m.metas.Count() > 0 and m.filterBar.callFunc("FocusIsOnChips")
         m.grid.SetFocus(true)
         return true
     else if key = "up" and m.grid.HasFocus()

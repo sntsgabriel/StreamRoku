@@ -45,6 +45,7 @@
          cannot survive a component boundary. What the subtree builds for itself
          is stateless per-request wrappers (CatalogStore, PlaybackStore,
          SubtitlesStore), which is why sharing them is not needed. -->
+    <script type="text/brightscript" uri="pkg:/source/util/HomeLayout.brs" />
     <script type="text/brightscript" uri="pkg:/source/core/ScreenStack.bs" />
     <script type="text/brightscript" uri="pkg:/source/core/AsyncTask.bs" />
     <script type="text/brightscript" uri="pkg:/source/stores/Transport.bs" />

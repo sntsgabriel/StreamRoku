@@ -521,3 +521,23 @@ end function
 function WatchRecord(packet as dynamic) as void
     m.stores.watch.Record(packet)
 end function
+
+function SettingsGetHomeLayout() as object
+    return m.stores.settings.GetHomeLayout()
+end function
+
+function SettingsSetHomeLayout(value as dynamic) as boolean
+    return m.stores.settings.SetHomeLayout(value)
+end function
+
+function LibraryRemovePosition(videoId as string) as boolean
+    return m.stores.library.RemovePosition(videoId)
+end function
+
+function LibraryMarkTitleWatched(metaId as string) as void
+    m.stores.library.MarkSeriesDone(metaId)
+end function
+
+function LibraryBuildHomeActionItem(packet as object) as dynamic
+    return m.stores.library.BuildHomeActionItem(packet)
+end function

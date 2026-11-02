@@ -3,6 +3,8 @@
 ' turns that runtime error into exit code 1).
 
 sub Harness_RunAll()
+    Test_HomeFeatures_LayoutAndProgress()
+    Test_HomeFeatures_SettingsAndAccount()
     Test_Stack_Introspection()
     Test_Push_ShowsAndEnters()
     Test_Modal_Push_KeepsPreviousVisible()

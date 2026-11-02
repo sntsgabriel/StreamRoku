@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="HomeMenu" extends="Group">
+    <interface>
+        <field id="choice" type="assocarray" alwaysNotify="true" />
+        <function name="Open" />
+        <function name="DismissMenu" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/components/HomeMenu.brs" />
+    <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
+    <children>
+        <Rectangle id="scrim" width="1920" height="1080" />
+        <Rectangle id="panel" translation="[360, 64]" width="1200" height="952" />
+        <Label id="title" translation="[416, 104]" width="1088" height="64" font="font:LargeBoldSystemFont" />
+        <Label id="subtitle" translation="[416, 174]" width="1088" height="36" font="font:SmallSystemFont" />
+        <RowList id="choices" translation="[416, 232]" numRows="8" itemSize="[1088, 76]" itemSpacing="[0, 12]" rowItemSize="[[1088, 76]]" showRowLabel="[false]" drawFocusFeedback="false" itemComponentName="HomeMenuRow" vertFocusAnimationStyle="floatingFocus" />
+        <Label id="footer" translation="[416, 956]" width="1088" height="36" font="font:SmallSystemFont" />
+    </children>
+</component>

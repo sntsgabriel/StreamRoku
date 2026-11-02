@@ -31,6 +31,8 @@ sub load()
                         if response.ok and response.metas <> invalid and response.metas.Count() > 0
                             row = {
                                 index: index
+                                catalogId: descriptor.id
+                                addonName: addon.name
                                 addonAddress: addon.address
                                 title: CatalogTitle(descriptor, addon)
                                 metaType: descriptor.type

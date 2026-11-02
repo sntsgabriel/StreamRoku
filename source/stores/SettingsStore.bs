@@ -33,6 +33,7 @@ class SettingsStore
     lightMode as boolean
     largeText as boolean
     highContrastFocus as boolean
+    homeLayout as object
     saveRefused as boolean
 
     sub new(registry = invalid as dynamic)
@@ -48,6 +49,7 @@ class SettingsStore
         m.lightMode = false
         m.largeText = false
         m.highContrastFocus = false
+        m.homeLayout = HomeNormalizeLayout(invalid)
         m.saveRefused = false
         m.Load()
     end sub
@@ -56,6 +58,24 @@ class SettingsStore
     ' or a path prefix), normalized to drop trailing slashes. Returns false and
     ' leaves the stored address untouched when the input is not a valid server
     ' URL.
+    function GetHomeLayout() as object
+        return HomeNormalizeLayout(m.homeLayout)
+    end function
+
+    function SetHomeLayout(value as dynamic) as boolean
+        candidate = HomeNormalizeLayout(value)
+        if m.registry <> invalid
+            if not m.registry.Write("homeLayout", FormatJson(candidate))
+                m.saveRefused = true
+                return false
+            end if
+            m.registry.Flush()
+        end if
+        m.homeLayout = candidate
+        m.saveRefused = false
+        return true
+    end function
+
     function SetServerAddress(url as string) as boolean
         candidate = url.Trim()
         while candidate.Right(1) = "/"
@@ -248,6 +268,7 @@ class SettingsStore
         if not m.registry.Write("lightMode", m.BoolToText(m.lightMode)) then ok = false
         if not m.registry.Write("largeText", m.BoolToText(m.largeText)) then ok = false
         if not m.registry.Write("highContrastFocus", m.BoolToText(m.highContrastFocus)) then ok = false
+        if not m.registry.Write("homeLayout", FormatJson(m.homeLayout)) then ok = false
         m.registry.Flush()
         m.saveRefused = not ok
         return ok
@@ -263,6 +284,7 @@ class SettingsStore
 
     sub Load()
         if m.registry = invalid then return
+        m.homeLayout = HomeNormalizeLayout(ParseJson(m.registry.Read("homeLayout")))
         address = m.registry.Read("serverAddress")
         if address <> "" then m.serverAddress = address
         language = m.registry.Read("language")

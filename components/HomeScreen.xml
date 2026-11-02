@@ -2,6 +2,8 @@
 <component name="HomeScreen" extends="Screen">
     <interface>
         <!-- The one action Home reports upward: a push request. -->
+        <field id="libraryChange" type="assocarray" alwaysNotify="true" />
+        <field id="homeEdit" type="assocarray" alwaysNotify="true" />
         <field id="pushRequest" type="assocarray" alwaysNotify="true" />
 
         <!-- Screen contract: called by ScreenStack for show/hide/focus/back. -->
@@ -18,6 +20,8 @@
     <script type="text/brightscript" uri="pkg:/source/core/Theme.bs" />
     <script type="text/brightscript" uri="pkg:/source/core/TileSize.bs" />
     <script type="text/brightscript" uri="pkg:/source/util/Helpers.brs" />
+
+    <script type="text/brightscript" uri="pkg:/source/util/HomeLayout.brs" />
 
     <children>
         <Rectangle id="homeBg" width="1920" height="1080" color="0x0E1110FF" />
@@ -51,38 +55,35 @@
 
         <!-- Catalog and Hero Info Area: repositions smoothly when the navigation menu expands -->
         <Group id="catalogArea" translation="[136, 0]">
-            <!-- Hero details overlay (top left above catalog) -->
-            <Group id="heroInfoGroup" translation="[0, 48]">
+            <!-- Reserve space for tall and wide logos, then metadata, synopsis and resume. -->
+            <Group id="heroInfoGroup" translation="[0, 80]">
                 <Poster
                     id="heroLogo"
-                    width="420"
-                    height="110"
+                    width="540"
+                    height="160"
                     loadDisplayMode="scaleToFit"
                     visible="false" />
                 <Label
                     id="heroTitle"
-                    translation="[0, 0]"
+                    translation="[0, 48]"
                     width="1000"
                     height="64"
                     font="font:LargeBoldSystemFont" />
                 <Label
                     id="heroMeta"
-                    translation="[0, 70]"
+                    translation="[0, 180]"
                     width="1000"
                     height="32"
                     font="font:SmallBoldSystemFont" />
                 <Label
                     id="heroDesc"
-                    translation="[0, 108]"
+                    translation="[0, 222]"
                     width="920"
-                    height="76"
-                    maxLines="3"
+                    height="64"
+                    maxLines="2"
                     wrap="true"
                     font="font:SmallSystemFont" />
-                <Group id="heroButtonsGroup" translation="[0, 196]">
-                    <Button id="btnPlay" minWidth="200" maxWidth="260" text="Assistir" />
-                    <Button id="btnDetails" translation="[220, 0]" minWidth="220" maxWidth="300" text="Mais informações" />
-                </Group>
+                <Label id="heroProgress" translation="[0, 298]" width="1100" height="36" visible="false" font="font:SmallBoldSystemFont" />
             </Group>
 
             <!-- Compatibility labels for headers and empty states -->
@@ -103,7 +104,7 @@
                 font="font:LargeBoldSystemFont" />
             <Label
                 id="homeSub"
-                translation="[0, 126]"
+                translation="[0, 32]"
                 width="1600"
                 height="32"
                 text=""
@@ -121,7 +122,7 @@
             <!-- Poster rows: single RowList owning grid physics -->
             <RowList
                 id="catalog"
-                translation="[0, 360]"
+                translation="[0, 474]"
                 numRows="2"
                 itemSize="[1784, 405]"
                 itemSpacing="[0, 66]"
@@ -129,6 +130,7 @@
                 rowItemSpacing="[[18, 0]]"
                 showRowLabel="[true]"
                 rowLabelFont="font:MediumBoldSystemFont"
+                vertFocusAnimationStyle="fixedFocus"
                 drawFocusFeedback="true"
                 drawFocusFeedbackOnMakeFocused="true"
                 itemComponentName="PosterTile" />
@@ -143,16 +145,16 @@
             <Group id="profileGroup" translation="[24, 32]">
                 <Rectangle id="avatarBg" width="48" height="48" color="0x2BD675FF" />
                 <Label id="avatarInitial" translation="[14, 8]" width="24" height="32" text="U" font="font:MediumBoldSystemFont" color="0x0E1110FF" />
-                <Label id="profileName" translation="[64, 4]" width="260" height="24" text="User 0" opacity="0" font="font:SmallBoldSystemFont" />
-                <Label id="profileSub" translation="[64, 26]" width="260" height="20" text="Rokumio" opacity="0" font="font:SmallSystemFont" />
+                <Label id="profileName" translation="[64, 0]" width="224" height="36" text="" opacity="0"><Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="24" /></Label>
+                <Label id="profileSub" translation="[64, 38]" width="224" height="28" text="" opacity="0"><Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="20" /></Label>
             </Group>
 
-            <Label id="brand" translation="[30, 96]" width="300" height="50" text="Rokumio" opacity="0" font="font:LargeBoldSystemFont" />
-            <Label id="compactBrand" translation="[30, 96]" width="60" height="50" text="R" font="font:LargeBoldSystemFont" />
+            <Label id="brand" translation="[24, 112]" width="300" height="50" text="Rokumio" opacity="0" font="font:LargeBoldSystemFont" />
+            <Label id="compactBrand" translation="[24, 112]" width="60" height="50" text="R" font="font:LargeBoldSystemFont" />
 
             <RowList
                 id="rail"
-                translation="[16, 160]"
+                translation="[16, 184]"
                 numRows="8"
                 itemSize="[332, 88]"
                 itemSpacing="[0, 12]"
@@ -164,6 +166,7 @@
                 itemComponentName="RailTile"
                 vertFocusAnimationStyle="floatingFocus" />
         </Group>
+        <HomeMenu id="homeMenu" visible="false" />
         <Animation id="railAnimation" duration="0.22" repeat="false">
             <FloatFieldInterpolator id="railWidthInterpolator" fieldToInterp="railBg.width" key="[0, 1]" keyValue="[96, 360]" />
         </Animation>
