@@ -53,6 +53,19 @@
 ' stragglers (see CancelSubtitles in onPlayKickFire), because a cancelled
 ' request can never land and can never be applied.
 sub init()
+    m.exiting = true
+    m.playbackFailed = false
+    m.failureNativeUI = invalid
+    m.completionHandled = false
+    m.lastPlaybackPosition = 0
+    m.lastPlaybackDuration = 0
+    m.nextMetaGeneration = 0
+    m.nextMetaTask = invalid
+    m.failureGroup = m.top.FindNode("playbackFailureGroup")
+    m.retryEpisodeButton = m.top.FindNode("retryEpisodeButton")
+    m.otherSourceButton = m.top.FindNode("otherSourceButton")
+    m.retryEpisodeButton.ObserveField("buttonSelected", "RetryCurrentEpisode")
+    m.otherSourceButton.ObserveField("buttonSelected", "ChooseCurrentSource")
     m.video = m.top.FindNode("video")
     m.captionButton = m.top.FindNode("captionButton")
     m.captionHint = m.top.FindNode("captionHint")
@@ -68,6 +81,7 @@ sub init()
     m.video.ObserveField("availableAudioTracks", "RefreshTrackPanel")
     m.playerControls = m.top.FindNode("playerControls")
     m.playerControls.ObserveField("action", "onPlayerControlAction")
+    m.playerControls.ObserveField("seekRequest", "onPlayerSeekRequest")
     m.video.ObserveField("position", "UpdatePlayerProgress")
     m.video.ObserveField("duration", "UpdatePlayerProgress")
     m.controlsNativeUI = invalid
@@ -82,6 +96,11 @@ sub init()
     m.toastFade = m.top.FindNode("toastFade")
 
     t = Theme()
+    m.top.FindNode("failureScrim").color = t.playerBg
+    m.top.FindNode("failurePlate").color = t.mediaPanelBg
+    m.top.FindNode("failureTitle").color = t.textPrimary
+    m.top.FindNode("failureEpisode").color = t.accent
+    m.top.FindNode("failureMessage").color = t.textSecondary
     m.top.FindNode("playerBg").color = t.playerBg
     m.status.color = t.textPrimary
     if m.toastPlate <> invalid then m.toastPlate.color = t.scrim
@@ -168,6 +187,16 @@ function OnEnter(params as object) as void
     RefreshTexts()
     if params = invalid or params.stream = invalid then return
     HidePlayerControls()
+    CancelNextMetaLoad()
+    m.exiting = false
+    m.playbackFailed = false
+    m.completionHandled = false
+    m.lastPlaybackPosition = 0
+    m.lastPlaybackDuration = 0
+    m.nextEpisodeData = invalid
+    m.failureGroup.visible = false
+    RestoreFailureUI()
+    m.nextMetaGeneration = m.nextMetaGeneration + 1
     m.playParams = params
     if m.stores <> invalid and m.stores.settings <> invalid
         m.preferredAudioLanguage = m.stores.settings.callFunc("SettingsGetPreferredAudioLanguage")
@@ -222,6 +251,7 @@ function OnEnter(params as object) as void
 
     StartResolve(params.stream, params.serverAddress, ResolveOrdinal(params.season), ResolveOrdinal(params.episode))
     StartSubtitles(params)
+    EnsureNextEpisodeData()
 end function
 
 ' Kick the stream resolution off the render thread. The task frees the UI as the
@@ -237,6 +267,7 @@ end function
 sub StartResolve(stream as object, serverAddress as dynamic, season = 0 as integer, episode = 0 as integer)
     if stream = invalid then
         m.status.text = Lang("player", "sourceUnavailable")
+        ShowPlaybackFailure()
         return
     end if
     if serverAddress = invalid then serverAddress = ""
@@ -429,6 +460,7 @@ sub onResolveResult()
             ' No video follows, so nothing downstream will end the pulse: this
             ' exit ends it.
             StopPreVideoPulse()
+            ShowPlaybackFailure()
             return
         end if
 
@@ -443,6 +475,7 @@ sub onResolveResult()
         ' Same as the failure exit above: a play that never starts leaves the
         ' pulse with nothing to hand off to.
         StopPreVideoPulse()
+        ShowPlaybackFailure()
     end try
 end sub
 
@@ -1389,9 +1422,10 @@ end function
 ' phase and for failures: a broken stream is a message, not a silent black
 ' frame. The native chrome owns everything once the platform has a stream.
 sub onVideoStateChanged()
-    if m.video = invalid then return
+    if m.video = invalid or m.exiting = true or not m.top.screenActive then return
     state = m.video.state
     if state = invalid then return
+    if m.playbackFailed = true and state <> "error" and state <> "finished" then return
     SyncPlayerControlsState()
     if state = "playing"
         m.hasPlayed = true
@@ -1414,6 +1448,7 @@ sub onVideoStateChanged()
         m.status.text = message
         HideBuffering()
         LogVideoError()
+        ShowPlaybackFailure()
     else if state = "buffering"
         ' The platform's own buffering UI (wheel + bars) is suppressed in favor of
         ' the app-owned reveal, so the pre-video indicators yield together: the
@@ -1429,11 +1464,23 @@ sub onVideoStateChanged()
         PublishWatchState()
     else if state = "finished" or state = "stopped"
         HideBuffering()
-        if state = "finished" then onVideoFinished()
+        if state = "finished"
+            onVideoFinished()
+        else if m.playStarted = true and m.completionHandled <> true
+            ShowPlaybackFailure()
+        end if
     end if
 end sub
 
 sub onVideoFinished()
+    if m.exiting = true or not m.top.screenActive or m.completionHandled = true then return
+    if m.playStarted <> true and m.hasPlayed <> true then return
+    if not PlayerReachedEnd(m.hasPlayed, m.playbackFailed, m.lastPlaybackPosition, m.lastPlaybackDuration)
+        if m.playbackFailed <> true then m.status.text = Lang("player", "endedEarly")
+        ShowPlaybackFailure()
+        return
+    end if
+    m.completionHandled = true
     SavePosition()
     if m.playParams = invalid then return
     if m.playParams.metaType <> "series" then return
@@ -1454,6 +1501,7 @@ sub onVideoFinished()
 end sub
 
 sub ShowNextEpisodePrompt()
+    if m.playbackFailed = true or m.exiting = true or not m.top.screenActive then return
     if m.nextEpisodeData = invalid then return
     m.nextEpisodeTitle.text = Lang("player", "nextEpisode")
     epTitle = "S" + m.nextEpisodeData.season.ToStr() + "E" + m.nextEpisodeData.episode.ToStr()
@@ -1472,6 +1520,8 @@ sub ShowNextEpisodePrompt()
 end sub
 
 sub onNextEpisodeTimerFire()
+    if m.playbackFailed = true or m.exiting = true or not m.top.screenActive then return
+    if m.nextEpisodeGroup = invalid or not m.nextEpisodeGroup.visible then return
     m.nextEpisodeCountdown = m.nextEpisodeCountdown - 1
     if m.nextEpisodeCountdown <= 0
         m.nextEpisodeTimer.control = "stop"
@@ -1490,6 +1540,7 @@ sub UpdateNextEpisodeCountdown()
 end sub
 
 sub PlayNextEpisode()
+    if m.playbackFailed = true or m.exiting = true or not m.top.screenActive then return
     if m.nextEpisodeData = invalid or m.playParams = invalid then return
     m.nextEpisodeTimer.control = "stop"
     m.nextEpisodeGroup.visible = false
@@ -1515,6 +1566,7 @@ sub PlayNextEpisode()
 end sub
 
 sub DismissNextEpisode()
+    m.nextEpisodeCountdown = 0
     if m.nextEpisodeTimer <> invalid then m.nextEpisodeTimer.control = "stop"
     if m.nextEpisodeGroup <> invalid then m.nextEpisodeGroup.visible = false
     if m.top.screenActive and m.video <> invalid then m.video.SetFocus(true)
@@ -1583,6 +1635,14 @@ end sub
 ' stack → stop + save + pop).
 function OnKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
+    if m.failureGroup <> invalid and m.failureGroup.visible
+        if key = "back"
+            ChooseCurrentSource()
+        else if key = "left" or key = "right"
+            if m.retryEpisodeButton.HasFocus() then m.otherSourceButton.SetFocus(true) else m.retryEpisodeButton.SetFocus(true)
+        end if
+        return true
+    end if
     if m.nextEpisodeGroup <> invalid and m.nextEpisodeGroup.visible
         if key = "back"
             DismissNextEpisode()
@@ -1658,6 +1718,10 @@ end function
 ' node. Nothing is reaped: this screen and its node are static children of the
 ' Scene and survive the pop, so the next play re-arms them in CreateVideo.
 function OnExit() as void
+    m.exiting = true
+    RestoreFailureUI()
+    CancelNextMetaLoad()
+    if m.failureGroup <> invalid then m.failureGroup.visible = false
     CancelResolve()
     CancelSubtitles()
     SavePosition()
@@ -1757,6 +1821,10 @@ sub SavePosition()
     duration = m.video.duration
     if position = invalid then position = 0
     if duration = invalid then duration = 0
+    if m.playbackFailed = true or m.completionHandled = true
+        if position <= 0 and m.lastPlaybackPosition > 0 then position = m.lastPlaybackPosition
+        if duration <= 0 and m.lastPlaybackDuration > 0 then duration = m.lastPlaybackDuration
+    end if
 
     season = 0
     if params.season <> invalid then season = params.season
@@ -1801,6 +1869,10 @@ sub PublishWatchState()
     duration = m.video.duration
     if position = invalid then position = 0
     if duration = invalid then duration = 0
+    if m.playbackFailed = true or m.completionHandled = true
+        if position <= 0 and m.lastPlaybackPosition > 0 then position = m.lastPlaybackPosition
+        if duration <= 0 and m.lastPlaybackDuration > 0 then duration = m.lastPlaybackDuration
+    end if
 
     name = ""
     if params.name <> invalid then name = params.name
@@ -1982,6 +2054,7 @@ end sub
 ' The native Video retains transport/decoding. This overlay only owns the
 ' sidebar and delayed pause artwork, and restores enableUI before yielding.
 sub ShowPlayerControls()
+    if m.playbackFailed = true then return
     if not m.top.screenActive or m.video = invalid then return
     if m.video.state <> "playing" and m.video.state <> "paused" then return
     if m.trackPanel.visible then return
@@ -1991,9 +2064,10 @@ sub ShowPlayerControls()
     if m.controlsNativeUI = invalid then m.controlsNativeUI = m.video.enableUI
     m.video.enableUI = false
     words = {}
-    for each key in ["back", "captions", "restart", "resume", "pause", "controls", "paused", "controlsHint", "pausePrompt"]
+    for each key in ["back", "captions", "restart", "resume", "pause", "controls", "paused", "controlsHint", "pausePrompt", "timeline", "timelineHint", "seekHint", "actionsHint", "remainingTime", "live", "liveHint", "nextEpisode"]
         words[key] = Lang("player", key)
     end for
+    m.playerControls.nextAvailable = m.nextEpisodeData <> invalid and m.nextEpisodeData.found = true
     m.playerControls.words = words
     m.playerControls.mediaTitle = TrackField(m.playParams, "name")
     m.playerControls.logo = TrackField(m.playParams, "logo")
@@ -2025,11 +2099,23 @@ sub UpdatePlayerProgress()
     duration = m.video.duration
     if position = invalid then position = 0
     if duration = invalid then duration = 0
+    if m.hasPlayed = true and m.playbackFailed <> true and (m.video.state = "playing" or m.video.state = "paused")
+        m.lastPlaybackPosition = position
+        if duration > 0 then m.lastPlaybackDuration = duration
+    end if
     m.playerControls.position = position
     m.playerControls.duration = duration
 end sub
 
 sub SyncPlayerControlsState()
+    if m.video.state = "buffering" and m.playerControls.visible then return
+    if m.video.state = "playing" and m.playerControls.visible and not m.trackPanel.visible
+        if m.playerControls.paused
+            m.playerControls.paused = false
+            m.playerControls.callFunc("PlaybackChanged")
+        end if
+        return
+    end if
     if m.video.state = "paused"
         if m.top.screenActive and not m.trackPanel.visible
             ' Repeated native state notifications must not restart the pause wait.
@@ -2042,6 +2128,21 @@ sub SyncPlayerControlsState()
     end if
 end sub
 
+sub onPlayerSeekRequest()
+    if not m.top.screenActive or m.video = invalid then return
+    if not m.playerControls.visible or m.trackPanel.visible then return
+    if m.video.state <> "playing" and m.video.state <> "paused" then return
+    request = m.playerControls.seekRequest
+    if request = invalid or request.position = invalid then return
+    if m.video.duration <= 0 then return
+    target = request.position
+    if target < 0 then target = 0
+    if target > m.video.duration then target = m.video.duration
+    ' Seeking does not change pause state, focus, content or track selection.
+    m.video.seek = target
+    m.playerControls.callFunc("SeekConfirmed", target)
+end sub
+
 sub onPlayerControlAction()
     if not m.top.screenActive or m.video = invalid then return
     action = m.playerControls.action
@@ -2051,6 +2152,13 @@ sub onPlayerControlAction()
         m.top.pushRequest = { screen: "back" }
     else if action = "captions"
         ShowCaptionMenu()
+    else if action = "next"
+        if m.nextEpisodeData <> invalid and m.nextEpisodeData.found = true
+            SavePosition()
+            PlayNextEpisode()
+        else
+            ShowPlayerControls()
+        end if
     else if action = "restart"
         RestartFromBeginning()
     else if action = "toggle"
@@ -2080,4 +2188,105 @@ sub RestartFromBeginning()
     ' Seek on the existing pump preserves the active audio and subtitle tracks.
     m.video.seek = 0
     if m.video.state = "paused" then m.video.control = "resume"
+end sub
+
+sub EnsureNextEpisodeData()
+    m.nextEpisodeData = FindNextEpisode()
+    m.playerControls.nextAvailable = m.nextEpisodeData <> invalid and m.nextEpisodeData.found = true
+    if m.playParams = invalid or m.playParams.metaType <> "series" or m.stores = invalid then return
+    meta = m.playParams.meta
+    if meta <> invalid and meta.videos <> invalid then return
+    address = StringOf(m.playParams.addonAddress)
+    if address = "" then return
+    CancelNextMetaLoad()
+    m.nextMetaTask = AsyncTask_Launch(m.top, "MetaLoaderTask", "onNextMetaLoaded", {
+        addonAddress: address
+        metaId: m.playParams.metaId
+        metaType: "series"
+        requestGeneration: m.nextMetaGeneration
+    }, "playerNextMetadata")
+end sub
+
+function FindNextEpisode() as dynamic
+    if m.playParams = invalid or m.playParams.metaType <> "series" or m.stores = invalid then return invalid
+    meta = m.playParams.meta
+    if meta = invalid or meta.videos = invalid then return invalid
+    return m.stores.episodes.callFunc("EpisodesNextEpisode", meta, ResolveOrdinal(m.playParams.season), ResolveOrdinal(m.playParams.episode))
+end function
+
+sub CancelNextMetaLoad()
+    if m.nextMetaTask = invalid then return
+    task = m.nextMetaTask
+    m.nextMetaTask = invalid
+    AsyncTask_Reap(task, m.top, true)
+end sub
+
+sub onNextMetaLoaded(event as object)
+    task = event.GetRoSGNode()
+    if m.nextMetaTask = invalid then return
+    if task.requestGeneration <> m.nextMetaTask.requestGeneration then return
+    m.nextMetaTask = invalid
+    AsyncTask_Reap(task, m.top, false)
+    if m.exiting = true or not m.top.screenActive or task.requestGeneration <> m.nextMetaGeneration then return
+    result = task.result
+    if result = invalid or not result.ok or result.meta = invalid then return
+    if result.meta.id <> invalid and result.meta.id <> m.playParams.metaId then return
+    if result.meta.type <> invalid and result.meta.type <> "series" then return
+    if m.playParams.meta = invalid
+        m.playParams.meta = result.meta
+    else
+        m.playParams.meta = m.stores.episodes.callFunc("EpisodesMergeMeta", m.playParams.meta, result.meta)
+    end if
+    m.nextEpisodeData = FindNextEpisode()
+    m.playerControls.nextAvailable = m.nextEpisodeData <> invalid and m.nextEpisodeData.found = true
+end sub
+
+sub ShowPlaybackFailure()
+    if m.exiting = true or not m.top.screenActive or m.playParams = invalid then return
+    m.playbackFailed = true
+    if m.failureGroup.visible then return
+    CancelNextMetaLoad()
+    CancelResolve()
+    CancelSubtitles()
+    if m.playTimer <> invalid then m.playTimer.control = "stop"
+    m.playArmed = false
+    StopPreVideoPulse()
+    HideBuffering()
+    HidePlayerControls()
+    DismissNextEpisode()
+    if m.video <> invalid
+        m.failureNativeUI = m.video.enableUI
+        m.video.enableUI = false
+    end if
+    m.top.FindNode("failureTitle").text = Lang("player", "cannotPlay")
+    title = StringOf(m.playParams.name)
+    number = ResolveOrdinal(m.playParams.episode)
+    if m.playParams.metaType = "series" and number > 0
+        title = title + " · " + Fill(Lang("common", "episodeMarker"), {season: ResolveOrdinal(m.playParams.season).ToStr(), episode: number.ToStr()})
+    end if
+    m.top.FindNode("failureEpisode").text = title
+    message = m.status.text
+    if message = "" then message = Lang("player", "playbackFailed")
+    m.top.FindNode("failureMessage").text = message
+    m.retryEpisodeButton.text = Lang("player", "retryCurrent")
+    m.otherSourceButton.text = Lang("player", "otherSource")
+    m.failureGroup.visible = true
+    m.retryEpisodeButton.SetFocus(true)
+end sub
+
+sub RetryCurrentEpisode()
+    if m.playParams = invalid then return
+    params = m.playParams
+    if m.hasPlayed = true and m.lastPlaybackPosition > 0 then params.position = m.lastPlaybackPosition
+    OnExit()
+    OnEnter(params)
+end sub
+
+sub ChooseCurrentSource()
+    m.top.pushRequest = { screen: "back" }
+end sub
+
+sub RestoreFailureUI()
+    if m.failureNativeUI <> invalid and m.video <> invalid then m.video.enableUI = m.failureNativeUI
+    m.failureNativeUI = invalid
 end sub

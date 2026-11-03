@@ -1,3 +1,18 @@
+## Avanço ao segurar e recuperação do episódio atual
+
+- Segurar ←/→ ou avançar/retroceder rápido move continuamente a prévia da linha do tempo, com aceleração progressiva. Um toque mantém o passo de 10s (30s no avanço/retrocesso rápido). Soltar interrompe o movimento; OK confirma a posição.
+- O reprodutor mostra **Próximo episódio** entre reiniciar e pausar quando a sequência do complemento informa um próximo episódio. Metadados incompletos são buscados em segundo plano. Filmes e finais de série não mostram um próximo episódio inexistente.
+- Uma falha, ausência de primeiro quadro ou encerramento antes do fim não abre mais a tela de próximo episódio. A recuperação oferece **Tentar novamente** e **Escolher outra fonte** para o mesmo episódio. O avanço automático permanece apenas quando houve reprodução e a última posição válida chegou ao fim conhecido.
+- Eventos de erro seguidos por `finished`, notificações duplicadas e callbacks de uma reprodução encerrada são protegidos. A tentativa mantém o episódio e o progresso conhecido; trocar a fonte retorna à lista do episódio atual.
+
+## Linha do tempo interativa
+
+Durante a reprodução, ↑ abre os controles com foco na linha do tempo. Outro ↑ chega ao pause; ↓ do pause retorna à barra. A linha em foco fica mais espessa e mostra um marcador maior, horário da posição escolhida, diferença em relação ao ponto atual e tempo restante.
+
+←/→ ajusta uma prévia em passos de 10 segundos; avançar/retroceder rápido usa 30 segundos. OK confirma a posição. Voltar cancela primeiro o ajuste; sem ajuste pendente, oculta os controles. O botão Play continua pausando/retomando diretamente. A confirmação mantém a barra visível e não solicita retomada de um vídeo pausado. Enquanto há uma prévia, os controles não somem por inatividade.
+
+A barra preserva a posição escolhida durante atualizações do vídeo e aguarda a confirmação da posição nativa por até quatro segundos. Sem duração conhecida, o ajuste fica indisponível. Aparência e comportamento nativo do seek precisam de conferência no aparelho.
+
 ## Ajuste do topo da Home — 0.2.6
 
 - Área do logotipo ampliada de 420 × 64 para 540 × 160, preservando a proporção da imagem.

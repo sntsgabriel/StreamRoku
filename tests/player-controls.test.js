@@ -12,15 +12,23 @@ function extract(file, name) {
 const source = [
     fs.readFileSync(path.join(root, 'source/util/PlayerControlsModel.brs'), 'utf8'),
     fs.readFileSync(path.join(root, 'source/util/TrackPanelModel.brs'), 'utf8'),
-    ...['ShowPlayerControls','HidePlayerControls','UpdatePlayerProgress','SyncPlayerControlsState','onPlayerControlAction','RestartFromBeginning','ResolveOrdinal'].map(n => extract('components/PlayerScreen.brs', n)),
+    ...['ShowPlayerControls','HidePlayerControls','UpdatePlayerProgress','SyncPlayerControlsState','onPlayerControlAction','onPlayerSeekRequest','RestartFromBeginning','ResolveOrdinal'].map(n => extract('components/PlayerScreen.brs', n)),
     extract('components/PlayerScreen.brs', 'ShowCaptionMenu').replace('ShowCaptionMenu(', 'ExerciseShowCaptionMenu('),
     extract('components/PlayerScreen.brs', 'CloseCaptionMenu'),
     extract('components/MainScene.brs', 'onPlayerAction'),
-    ...['Open','onPauseTick','ResetIdle','ShowIdleDetails','AutoHide','Dismiss','WakeControls','SelectAction','UpdateButtons','Word','UpdateArtwork','UpdateProgress'].map(n => extract('components/PlayerControls.brs', n)),
+    ...['Open','onPauseTick','ResetIdle','ShowIdleDetails','AutoHide','Dismiss','WakeControls','SelectAction','UpdateButtons','Word','UpdateArtwork','UpdateProgress','PreviewSeek','CancelSeek','SeekConfirmed','PlaybackChanged','StopSeekHold','StartSeekHold','onSeekHoldTick'].map(n => extract('components/PlayerControls.brs', n)),
     extract('components/MediaChoiceRow.brs', 'UpdateLook').replace('UpdateLook(', 'MediaRowLook('),
     extract('components/PlayerControls.brs', 'onKeyEvent').replace('onKeyEvent(', 'ControlsKeyEvent(')
 ].join('\n');
 const mocks = `
+function ControlsTestNodes() as object
+ nodes={}
+ for each id in ["smallTitle","smallEpisode","mediaTitle","episode","stateLabel","idleState","hint","pausePrompt","mediaLogo","elapsed","total","remaining","progressTrack","progressFill","progressDot","seekRange","seekBubble","seekTime","seekDelta","timelineLabel"]
+  nodes[id]={}
+ end for
+ return nodes
+end function
+
 function Lang(section as string, key as string) as string
  if key="episodeMarker" then return "T{season}:E{episode}"
  return key
@@ -148,13 +156,20 @@ m.video.state="error" : m.video.seek=42
 RestartFromBeginning()
 Harness_Equal(m.video.seek,42,"restart ignores errored or unstarted streams")
 m.idleTimer={control:"stop"} : m.hideTimer={control:"stop"}
+m.seekSettleTimer={control:"stop"}
+m.seekHoldTimer={control:"stop"}
+m.holdKey=""
+m.holdClock={elapsed:0,Mark:function() : m.elapsed=0 : end function,TotalMilliseconds:function() : return m.elapsed : end function}
+m.seekClock={elapsed:0,Mark:function() : m.elapsed=0 : end function,TotalMilliseconds:function() : return m.elapsed : end function}
+m.seeking=false : m.seekPending=false : m.focusZone="actions"
 m.pauseClock={elapsed:0,marks:0,Mark:function() : m.elapsed=0 : m.marks=m.marks+1 : end function,TotalMilliseconds:function() : return m.elapsed : end function}
 m.details={visible:false}
 m.chrome={visible:true}
 m.buttons=[{},{},{},{}]
 m.actionIds=["back","captions","restart","toggle"]
 m.focusedIndex=3
-m.top={visible:true,paused:true,words:{back:"Back",captions:"Subtitles",restart:"Restart",resume:"Resume",pause:"Pause"}}
+m.nodes=ControlsTestNodes()
+m.top={visible:true,paused:true,position:128,duration:600,globalNodes:m.nodes,FindNode:function(id) : return m.globalNodes[id] : end function,words:{back:"Back",captions:"Subtitles",restart:"Restart",resume:"Resume",pause:"Pause"}}
 ResetIdle()
 Harness_Equal(m.idleTimer.control,"start","pause arms delayed details")
 Harness_Equal(m.hideTimer.control,"stop","paused controls do not auto hide")
@@ -191,7 +206,11 @@ Harness_Equal(m.top.action,"toggle","remote Play toggles playback")
 Harness_Equal(ControlsKeyEvent("back",true),true,"remote Back hides overlay before leaving player")
 Harness_Equal(m.top.action,"dismiss","Back does not accidentally exit playback")
 m.focusedIndex=3
-Harness_Equal(ControlsKeyEvent("up",true),true,"up navigates compact icon rail")
+Harness_Equal(m.focusZone,"timeline","waking controls selects timeline before pause")
+Harness_Equal(ControlsKeyEvent("up",true),true,"up moves from timeline to pause")
+Harness_Equal(m.focusedIndex,3,"first control above timeline is pause")
+Harness_Equal(m.buttons[3].selected,true,"pause gains focus only after leaving timeline")
+ControlsKeyEvent("up",true)
 Harness_Equal(m.focusedIndex,2,"up reaches restart icon")
 Harness_Equal(m.buttons[2].selected,true,"only focused icon gets selected label")
 Harness_Equal(m.buttons[3].selected,false,"previous icon loses focus")
@@ -223,7 +242,7 @@ UpdateArtwork()
 Harness_Equal(m.nodes.mediaTitle.visible,true,"failed logo restores readable title fallback")
 Harness_Equal(m.nodes.mediaLogo.visible,false,"failed artwork does not leave an empty image")
 m.nodes={}
-for each id in ["smallTitle","smallEpisode","mediaTitle","episode","stateLabel","idleState","hint","pausePrompt","mediaLogo","elapsed","total","progressFill","progressDot"]
+for each id in ["smallTitle","smallEpisode","mediaTitle","episode","stateLabel","idleState","hint","pausePrompt","mediaLogo","elapsed","total","remaining","progressTrack","progressFill","progressDot","seekRange","seekBubble","seekTime","seekDelta","timelineLabel"]
  m.nodes[id]={}
 end for
 m.nodes.mediaLogo.loadStatus="failed"

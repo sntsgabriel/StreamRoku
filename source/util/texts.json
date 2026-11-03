@@ -302,7 +302,18 @@
       "controls": "Playback",
       "paused": "Paused",
       "controlsHint": "Arrows: browse     OK: select     Back: hide",
-      "pausePrompt": "OK to resume   ·   Arrows to show controls"
+      "pausePrompt": "OK to resume   ·   Arrows to show controls",
+      "timeline": "Timeline",
+      "timelineHint": "←/→ Adjust position · OK Play/pause · ↑ Controls · Back Hide",
+      "seekHint": "←/→ Adjust · Hold to accelerate · OK Confirm · Back Cancel",
+      "actionsHint": "↑/↓ Choose action · OK Select · → Timeline",
+      "remainingTime": "{time} remaining",
+      "live": "Live",
+      "liveHint": "Seeking unavailable for this stream · ↑ Controls · Back Hide",
+      "cannotPlay": "Unable to play",
+      "retryCurrent": "Try again",
+      "otherSource": "Choose another source",
+      "endedEarly": "Playback ended. Try again or choose another source to continue this title."
     },
     "discover": {
       "title": "Discover",
@@ -703,7 +714,18 @@
       "controls": "Reproducción",
       "paused": "En pausa",
       "controlsHint": "Flechas: navegar     OK: elegir     Atrás: ocultar",
-      "pausePrompt": "OK para continuar   ·   Flechas para ver los controles"
+      "pausePrompt": "OK para continuar   ·   Flechas para ver los controles",
+      "timeline": "Línea de tiempo",
+      "timelineHint": "←/→ Ajustar posición · OK Pausar/continuar · ↑ Controles · Atrás Ocultar",
+      "seekHint": "←/→ Ajustar · Mantener para acelerar · OK Confirmar · Atrás Cancelar",
+      "actionsHint": "↑/↓ Elegir acción · OK Seleccionar · → Línea de tiempo",
+      "remainingTime": "Faltan {time}",
+      "live": "En vivo",
+      "liveHint": "Posición no disponible en esta transmisión · ↑ Controles · Atrás Ocultar",
+      "cannotPlay": "No se pudo reproducir",
+      "retryCurrent": "Intentar de nuevo",
+      "otherSource": "Elegir otra fuente",
+      "endedEarly": "La reproducción terminó. Inténtalo de nuevo o elige otra fuente para continuar este título."
     },
     "discover": {
       "title": "Descubrir",
@@ -1104,7 +1126,18 @@
       "controls": "Reprodução",
       "paused": "Pausado",
       "controlsHint": "Setas: navegar     OK: selecionar     Voltar: ocultar",
-      "pausePrompt": "OK para continuar   ·   Setas para ver os controles"
+      "pausePrompt": "OK para continuar   ·   Setas para ver os controles",
+      "timeline": "Linha do tempo",
+      "timelineHint": "←/→ Ajustar posição · OK Pausar/continuar · ↑ Controles · Voltar Ocultar",
+      "seekHint": "←/→ Ajustar · Segure para acelerar · OK Confirmar · Voltar Cancelar",
+      "actionsHint": "↑/↓ Escolher ação · OK Selecionar · → Linha do tempo",
+      "remainingTime": "Faltam {time}",
+      "live": "Ao vivo",
+      "liveHint": "Posição indisponível nesta transmissão · ↑ Controles · Voltar Ocultar",
+      "cannotPlay": "Não foi possível reproduzir",
+      "retryCurrent": "Tentar novamente",
+      "otherSource": "Escolher outra fonte",
+      "endedEarly": "A reprodução foi encerrada. Tente novamente ou escolha outra fonte para continuar este título."
     },
     "discover": {
       "title": "Explorar",

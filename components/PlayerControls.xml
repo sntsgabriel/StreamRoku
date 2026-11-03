@@ -7,10 +7,14 @@
         <field id="logo" type="string" />
         <field id="position" type="float" onChange="UpdateProgress" />
         <field id="duration" type="float" onChange="UpdateProgress" />
+        <field id="nextAvailable" type="boolean" value="false" onChange="UpdateButtons" />
         <field id="paused" type="boolean" />
+        <field id="seekRequest" type="assocarray" alwaysNotify="true" />
         <field id="action" type="string" alwaysNotify="true" />
         <function name="Open" />
         <function name="Dismiss" />
+        <function name="SeekConfirmed" />
+        <function name="PlaybackChanged" />
     </interface>
     <script type="text/brightscript" uri="pkg:/components/PlayerControls.brs" />
     <script type="text/brightscript" uri="pkg:/source/util/PlayerControlsModel.brs" />
@@ -27,19 +31,34 @@
             <Label id="stateLabel" translation="[1512, 78]" width="264" height="42" horizAlign="right">
                 <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
             </Label>
-            <Group translation="[84, 276]">
+            <Group translation="[84, 220]">
                 <PlayerActionButton id="backAction" />
                 <PlayerActionButton id="captionsAction" translation="[0, 108]" />
                 <PlayerActionButton id="restartAction" translation="[0, 216]" />
-                <PlayerActionButton id="toggleAction" translation="[0, 324]" />
+                <PlayerActionButton id="nextAction" translation="[0, 324]" visible="false" />
+                <PlayerActionButton id="toggleAction" translation="[0, 432]" />
             </Group>
-            <Group id="timeline" translation="[144, 906]">
-                <Label id="elapsed" translation="[0, 21]" width="120" height="48" font="font:SmallSystemFont" />
-                <Rectangle id="progressTrack" translation="[144, 45]" width="1296" height="4" />
-                <Rectangle id="progressFill" translation="[144, 45]" width="0" height="4" />
-                <Poster id="progressDot" uri="pkg:/images/player-circle.png" translation="[136, 39]" width="16" height="16" />
-                <Label id="total" translation="[1470, 21]" width="162" height="48" horizAlign="right" font="font:SmallSystemFont" />
-                <Label id="hint" translation="[144, 87]" width="1296" height="36">
+            <Group id="timeline" translation="[144, 870]">
+                <Label id="timelineLabel" translation="[0, -80]" width="1200" height="36">
+                    <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="24" />
+                </Label>
+                <Rectangle id="progressTrack" translation="[0, 64]" width="1632" height="6" />
+                <Rectangle id="progressFill" translation="[0, 64]" width="0" height="6" />
+                <Rectangle id="seekRange" translation="[0, 64]" width="0" height="6" visible="false" />
+                <Poster id="progressDot" uri="pkg:/images/player-circle.png" translation="[-11, 56]" width="22" height="22" />
+                <Group id="seekBubble" translation="[0, -28]" visible="false">
+                    <Rectangle id="seekBubbleFace" width="200" height="76" />
+                    <Label id="seekTime" width="200" height="42" horizAlign="center" vertAlign="center">
+                        <Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="28" />
+                    </Label>
+                    <Label id="seekDelta" translation="[0, 42]" width="200" height="30" horizAlign="center">
+                        <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
+                    </Label>
+                </Group>
+                <Label id="elapsed" translation="[0, 96]" width="240" height="42" font="font:SmallBoldSystemFont" />
+                <Label id="remaining" translation="[420, 96]" width="792" height="42" horizAlign="center" font="font:SmallSystemFont" />
+                <Label id="total" translation="[1392, 96]" width="240" height="42" horizAlign="right" font="font:SmallBoldSystemFont" />
+                <Label id="hint" translation="[0, 150]" width="1632" height="36">
                     <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="22" />
                 </Label>
             </Group>
@@ -59,6 +78,8 @@
                 <Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="24" />
             </Label>
         </Group>
+        <Timer id="seekHoldTimer" duration="0.2" repeat="true" />
+        <Timer id="seekSettleTimer" duration="0.25" repeat="true" />
         <Timer id="idleTimer" duration="1" repeat="true" />
         <Timer id="hideTimer" duration="6" repeat="false" />
     </children>

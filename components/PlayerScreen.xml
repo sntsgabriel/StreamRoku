@@ -33,6 +33,7 @@
     <script type="text/brightscript" uri="pkg:/source/util/AddonJson.brs" />
 
     <script type="text/brightscript" uri="pkg:/source/util/TrackPanelModel.brs" />
+    <script type="text/brightscript" uri="pkg:/source/util/PlayerControlsModel.brs" />
 
     <children>
         <Rectangle id="playerBg" width="1920" height="1080" />
@@ -167,5 +168,14 @@
                 maxWidth="320" />
         </Group>
         <Timer id="nextEpisodeTimer" duration="1.0" repeat="true" />
+        <Group id="playbackFailureGroup" visible="false">
+            <Rectangle id="failureScrim" width="1920" height="1080" />
+            <Rectangle id="failurePlate" translation="[380, 300]" width="1160" height="480" />
+            <Label id="failureTitle" translation="[430, 344]" width="1060" height="60" font="font:LargeBoldSystemFont" />
+            <Label id="failureEpisode" translation="[430, 414]" width="1060" height="42" font="font:SmallBoldSystemFont" />
+            <Label id="failureMessage" translation="[430, 480]" width="1060" height="140" wrap="true" maxLines="3" font="font:SmallSystemFont" />
+            <Button id="retryEpisodeButton" translation="[430, 662]" minWidth="450" maxWidth="450" height="72" iconUri="" focusedIconUri="" textFont="font:SmallBoldSystemFont" focusedTextFont="font:SmallBoldSystemFont" />
+            <Button id="otherSourceButton" translation="[930, 662]" minWidth="450" maxWidth="450" height="72" iconUri="" focusedIconUri="" textFont="font:SmallBoldSystemFont" focusedTextFont="font:SmallBoldSystemFont" />
+        </Group>
     </children>
 </component>
