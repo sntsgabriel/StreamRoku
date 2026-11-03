@@ -292,7 +292,15 @@ sub onStreamsLoaded(event as object)
     end if
 
     if m.pendingCount > 0 then m.pendingCount = m.pendingCount - 1
+    if index <> m.activeIndex and not m.userNavigatedProviders and provider.streams.Count() > 0
+        if m.providers[m.activeIndex] <> invalid and m.providers[m.activeIndex].streams.Count() = 0
+            m.activeIndex = index
+            m.listFilled = false
+            UpdateHeader()
+        end if
+    end if
     if index = m.activeIndex then RenderActiveProvider()
+    UpdateHeader()
     UpdateStreamsStatus()
 end sub
 
