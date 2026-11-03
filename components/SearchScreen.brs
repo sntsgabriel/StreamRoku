@@ -52,6 +52,8 @@ sub init()
     m.resultsButton.ObserveField("buttonSelected", "onShowResults")
     m.debounce.ObserveField("fire", "onSearchDebounce")
     if m.retrySearchBtn <> invalid then m.retrySearchBtn.ObserveField("buttonSelected", "onRetrySearch")
+    if m.resultsButton <> invalid then m.resultsButton.visible = false
+    if m.resultsHeader <> invalid then m.resultsHeader.visible = false
 
     m.historyStore = SearchHistoryStore(CreateObject("roRegistrySection", "search_history"), 10)
     m.historyGroup = m.top.FindNode("historyGroup")
@@ -76,13 +78,18 @@ function OnEnter(params as object) as void
     m.top.FindNode("searchTitle").text = Lang("search", "title")
     m.top.FindNode("searchSub").text = Lang("search", "liveHint")
     m.resultsButton.text = Lang("search", "showResults")
-    if m.retrySearchBtn <> invalid then m.retrySearchBtn.text = Lang("search", "retry")
+    m.resultsButton.visible = (m.rows.Count() > 0)
+    if m.retrySearchBtn <> invalid then
+        m.retrySearchBtn.text = Lang("search", "retry")
+        m.retrySearchBtn.visible = false
+    end if
     if m.resultsHeader <> invalid then
         if m.keyboard <> invalid and m.keyboard.text.Trim().Len() >= 2
             m.resultsHeader.text = Lang("search", "searchResults")
         else
             m.resultsHeader.text = Lang("search", "recommended")
         end if
+        m.resultsHeader.visible = (m.rows.Count() > 0)
     end if
 
     UpdateQueryDisplay()
@@ -242,6 +249,8 @@ sub ClearResults()
         m.results.content = CreateObject("roSGNode", "ContentNode")
         m.results.numRows = 0
     end if
+    if m.resultsButton <> invalid then m.resultsButton.visible = false
+    if m.resultsHeader <> invalid then m.resultsHeader.visible = false
 end sub
 
 sub ShowSearchDialog()
@@ -275,12 +284,20 @@ sub onQueryChanged()
     if query.Len() < 2
         m.status.text = Lang("search", "minChars")
         if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
-        if m.resultsHeader <> invalid then m.resultsHeader.text = Lang("search", "recommended")
+        if m.resultsButton <> invalid then m.resultsButton.visible = false
+        if m.resultsHeader <> invalid
+            m.resultsHeader.text = Lang("search", "recommended")
+            m.resultsHeader.visible = false
+        end if
         if m.historyGroup <> invalid then ShowHistory()
         return
     end if
     if m.historyGroup <> invalid then HideHistory()
-    if m.resultsHeader <> invalid then m.resultsHeader.text = Lang("search", "searchResults")
+    if m.resultsHeader <> invalid
+        m.resultsHeader.text = Lang("search", "searchResults")
+        m.resultsHeader.visible = false
+    end if
+    if m.resultsButton <> invalid then m.resultsButton.visible = false
     if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
     m.status.text = Lang("search", "searching")
     m.debounce.control = "start"
@@ -565,6 +582,8 @@ sub RebuildRows()
     m.rows = rows
     RenderRows()
     if prevCount = 0 and m.rows.Count() > 0 then m.results.jumpToRowItem = [0, 0]
+    if m.resultsButton <> invalid then m.resultsButton.visible = (m.rows.Count() > 0)
+    if m.resultsHeader <> invalid then m.resultsHeader.visible = (m.rows.Count() > 0)
 end sub
 
 sub RenderRows()
@@ -601,18 +620,26 @@ sub UpdateSearchStatus()
     if pending > 0
         m.status.text = Lang("search", "searching")
         if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
+        if m.resultsButton <> invalid then m.resultsButton.visible = (m.rows.Count() > 0)
+        if m.resultsHeader <> invalid then m.resultsHeader.visible = (m.rows.Count() > 0)
     else if m.rows.Count() > 0
         m.status.text = ""
         if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
+        if m.resultsButton <> invalid then m.resultsButton.visible = true
+        if m.resultsHeader <> invalid then m.resultsHeader.visible = true
     else if m.searchFailed
         m.status.text = Lang("search", "searchFailed")
         if m.retrySearchBtn <> invalid then
             m.retrySearchBtn.text = Lang("search", "retry")
             m.retrySearchBtn.visible = true
         end if
+        if m.resultsButton <> invalid then m.resultsButton.visible = false
+        if m.resultsHeader <> invalid then m.resultsHeader.visible = false
     else
         m.status.text = Fill(Lang("search", "noResults"), { query: m.lastQuery })
         if m.retrySearchBtn <> invalid then m.retrySearchBtn.visible = false
+        if m.resultsButton <> invalid then m.resultsButton.visible = false
+        if m.resultsHeader <> invalid then m.resultsHeader.visible = false
     end if
 end sub
 
@@ -695,8 +722,16 @@ function onKeyEvent(key as string, press as boolean) as boolean
     end if
 
     if key = "down" and m.keyboard.IsInFocusChain()
-        m.resultsButton.SetFocus(true)
-        return true
+        if m.resultsButton <> invalid and m.resultsButton.visible
+            m.resultsButton.SetFocus(true)
+            return true
+        else if m.retrySearchBtn <> invalid and m.retrySearchBtn.visible
+            m.retrySearchBtn.SetFocus(true)
+            return true
+        else if m.historyGroup <> invalid and m.historyGroup.visible and m.historyList <> invalid and m.historyList.content <> invalid and m.historyList.content.getChildCount() > 0
+            m.historyList.SetFocus(true)
+            return true
+        end if
     else if key = "left" and m.keyboard.IsInFocusChain()
         if m.historyGroup <> invalid and m.historyGroup.visible and m.historyList <> invalid and m.historyList.content <> invalid and m.historyList.content.getChildCount() > 0
             m.historyList.SetFocus(true)
@@ -731,7 +766,11 @@ function onKeyEvent(key as string, press as boolean) as boolean
         m.keyboard.SetFocus(true)
         return true
     else if key = "up" and m.results.HasFocus()
-        m.resultsButton.SetFocus(true)
+        if m.resultsButton <> invalid and m.resultsButton.visible
+            m.resultsButton.SetFocus(true)
+        else
+            m.keyboard.SetFocus(true)
+        end if
         return true
     else if key = "left" and m.results.HasFocus()
         if m.results.rowItemSelected <> invalid and m.results.rowItemSelected.Count() > 1 and m.results.rowItemSelected[1] = 0

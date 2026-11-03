@@ -26,7 +26,7 @@
         <!-- Wide Top Search Bar (YouTube TV style) -->
         <Group id="searchBarGroup" translation="[136, 32]">
             <Rectangle id="searchBarBg" width="1648" height="52" color="0x181D1AFF" />
-            <Label id="searchBarIcon" translation="[18, 10]" width="32" height="32" text="⌕" font="font:MediumBoldSystemFont" />
+            <Poster id="searchBarIcon" translation="[18, 14]" width="24" height="24" uri="pkg:/images/search.png" />
             <Label id="searchQueryDisplay" translation="[58, 10]" width="1560" height="32" text="Pesquisar" font="font:MediumSystemFont" />
         </Group>
 
@@ -61,13 +61,13 @@
             <Button
                 id="clearHistoryBtn"
                 translation="[0, 350]"
-                minWidth="260"
-                maxWidth="275" />
+                minWidth="240"
+                maxWidth="270" />
             <Button
                 id="removeHistoryBtn"
                 translation="[285, 350]"
-                minWidth="260"
-                maxWidth="275" />
+                minWidth="240"
+                maxWidth="270" />
         </Group>
 
         <!-- Right column: Compact keyboard in guarded viewport -->
@@ -75,24 +75,33 @@
             <DynamicKeyboard id="liveKeyboard" scale="[0.5, 0.5]" domain="generic" />
         </Group>
         <Timer id="keyboardLayoutTimer" duration="0.1" repeat="false" />
-        <Button id="showResults" translation="[740, 590]" minWidth="360" maxWidth="480" />
-        <Button id="retrySearchBtn" translation="[1130, 590]" minWidth="240" maxWidth="360" visible="false" />
-        <Label id="searchStatus" translation="[740, 642]" width="760" height="36" font="font:SmallSystemFont" />
+        <Label
+            id="searchStatus"
+            translation="[740, 484]"
+            width="760"
+            height="56"
+            wrap="true"
+            numLines="2"
+            lineSpacing="4"
+            font="font:SmallSystemFont" />
+        <Button id="showResults" translation="[740, 546]" minWidth="360" maxWidth="480" visible="false" />
+        <Button id="retrySearchBtn" translation="[1120, 546]" minWidth="240" maxWidth="360" visible="false" />
         <Timer id="searchDebounce" duration="0.6" repeat="false" />
 
         <!-- Bottom row: Results / Recommendations section -->
         <Label
             id="resultsHeader"
-            translation="[136, 650]"
+            translation="[136, 616]"
             width="1648"
             height="32"
-            font="font:MediumBoldSystemFont" />
+            font="font:MediumBoldSystemFont"
+            visible="false" />
 
         <!-- Results grid: poster rows, one per catalog that returned results. -->
         <RowList
             id="searchResults"
-            clippingRect="[-8, -8, 1664, 400]"
-            translation="[136, 688]"
+            clippingRect="[-8, -8, 1664, 430]"
+            translation="[136, 654]"
             numRows="1"
             itemSize="[1648, 360]"
             itemSpacing="[0, 40]"
