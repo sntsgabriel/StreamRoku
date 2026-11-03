@@ -395,8 +395,19 @@ class Transport
     ' right resource with the user's args intact.
     function EndpointUrl(storedAddress as string, endpointPath as string) as string
         at = storedAddress.InStr("?")
-        if at < 0 then return storedAddress + endpointPath
-        return storedAddress.Left(at) + endpointPath + storedAddress.Mid(at)
+        if at < 0
+            base = storedAddress
+            query = ""
+        else
+            base = storedAddress.Left(at)
+            query = storedAddress.Mid(at)
+        end if
+        while base.Right(1) = "/"
+            base = base.Left(base.Len() - 1)
+        end while
+        cleanPath = endpointPath
+        if cleanPath.Left(1) <> "/" then cleanPath = "/" + cleanPath
+        return base + cleanPath + query
     end function
 
     ' Normalize a raw client result into the transport result: parse JSON when

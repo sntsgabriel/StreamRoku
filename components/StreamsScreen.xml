@@ -31,37 +31,38 @@
     <children>
         <Rectangle id="streamBg" width="1920" height="1080" />
         <Poster id="bgPoster" width="1920" height="1080" loadDisplayMode="scaleToZoom" />
+        <Poster id="bgGradient" width="1920" height="1080" uri="pkg:/images/hero-gradient.png" loadDisplayMode="scaleToFill" />
         <Rectangle id="bgScrim" width="1920" height="1080" />
 
         <!-- Left: title + optional episode line + synopsis. No poster. -->
         <Label
             id="headTitle"
-            translation="[80, 150]"
+            translation="[80, 100]"
             width="620"
-            height="90"
+            height="86"
             horizAlign="left"
             wrap="true"
             font="font:LargeBoldSystemFont" />
         <Label
             id="headSub"
-            translation="[80, 250]"
+            translation="[80, 192]"
             width="620"
             height="40"
             font="font:MediumSystemFont" />
         <Label
             id="synopsis"
-            translation="[80, 306]"
-            width="600"
-            height="560"
+            translation="[80, 240]"
+            width="620"
+            height="620"
             wrap="true"
             horizAlign="left"
             vertAlign="top"
             font="font:SmallSystemFont" />
         <Label
             id="status"
-            translation="[80, 900]"
-            width="600"
-            height="140"
+            translation="[80, 920]"
+            width="620"
+            height="100"
             wrap="true"
             horizAlign="left"
             vertAlign="top"
@@ -73,38 +74,39 @@
              providers. -->
         <Poster
             id="arrowLeft"
-            translation="[760, 92]"
-            width="48"
-            height="48"
+            translation="[760, 98]"
+            width="36"
+            height="36"
             uri="pkg:/images/arrow-left.png"
             visible="false" />
         <Label
             id="providerName"
-            translation="[824, 96]"
-            width="920"
+            translation="[806, 96]"
+            width="580"
             height="40"
             horizAlign="left"
             wrap="true"
             font="font:MediumBoldSystemFont" />
         <Poster
             id="arrowRight"
-            translation="[1768, 92]"
-            width="48"
-            height="48"
+            translation="[1396, 98]"
+            width="36"
+            height="36"
             uri="pkg:/images/arrow-right.png"
             visible="false" />
-        <Group
-            id="providerSegments"
-            translation="[760, 156]" />
         <Label
             id="filterStatus"
-            translation="[760, 146]"
-            width="900"
+            translation="[1440, 102]"
+            width="400"
             height="30"
+            horizAlign="right"
             font="font:SmallSystemFont" />
+        <Group
+            id="providerSegments"
+            translation="[760, 146]" />
         <RowList
             id="streamsList"
-            translation="[760, 180]"
+            translation="[760, 172]"
             numRows="1"
             itemSize="[1080, 312]"
             itemSpacing="[0, 12]"
@@ -113,21 +115,33 @@
             showRowLabel="false"
             drawFocusFeedback="false"
             itemComponentName="StreamTile" />
-        <Label
-            id="streamsPlaceholder"
-            translation="[760, 300]"
-            width="1040"
-            height="140"
-            wrap="true"
-            horizAlign="left"
-            vertAlign="top"
-            font="font:MediumSystemFont"
-            visible="false" />
-        <Button
-            id="clearFilterBtn"
-            translation="[760, 460]"
-            minWidth="320"
-            maxWidth="400"
-            visible="false" />
+
+        <Group id="placeholderGroup" translation="[760, 172]" visible="false">
+            <Rectangle id="placeholderCard" width="1080" height="240" />
+            <Label
+                id="streamsPlaceholder"
+                translation="[40, 32]"
+                width="1000"
+                height="70"
+                wrap="true"
+                horizAlign="left"
+                vertAlign="top"
+                font="font:MediumBoldSystemFont" />
+            <Label
+                id="streamsPlaceholderHint"
+                translation="[40, 108]"
+                width="1000"
+                height="60"
+                wrap="true"
+                horizAlign="left"
+                vertAlign="top"
+                font="font:SmallSystemFont" />
+            <Button
+                id="clearFilterBtn"
+                translation="[40, 172]"
+                minWidth="280"
+                maxWidth="360"
+                visible="false" />
+        </Group>
     </children>
 </component>

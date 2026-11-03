@@ -217,6 +217,14 @@ sub RenderKind(meta as object)
         runtime = FormatRuntime(meta.runtime)
         if runtime <> "" then kind = kind + " · " + runtime
     end if
+    if Type(meta.genres) = "roArray" and meta.genres.Count() > 0
+        genreList = []
+        for i = 0 to meta.genres.Count() - 1
+            if i >= 3 then exit for
+            genreList.Push(StringOf(meta.genres[i]))
+        end for
+        if genreList.Count() > 0 then kind = kind + " · " + genreList.Join(", ")
+    end if
     m.detailType.text = kind
 end sub
 

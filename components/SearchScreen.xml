@@ -21,11 +21,11 @@
     <script type="text/brightscript" uri="pkg:/source/util/UiLayout.brs" />
 
     <children>
-        <Rectangle id="searchBg" width="1920" height="1080" color="0x0E1110FF" />
+        <Rectangle id="searchBg" width="1920" height="1080" color="0x0B0D12FF" />
 
         <!-- Wide Top Search Bar (YouTube TV style) -->
         <Group id="searchBarGroup" translation="[136, 32]">
-            <Rectangle id="searchBarBg" width="1648" height="52" color="0x181D1AFF" />
+            <Rectangle id="searchBarBg" width="1648" height="52" color="0x151923FF" />
             <Poster id="searchBarIcon" translation="[18, 14]" width="24" height="24" uri="pkg:/images/search.png" />
             <Label id="searchQueryDisplay" translation="[58, 10]" width="1560" height="32" text="Pesquisar" font="font:MediumSystemFont" />
         </Group>

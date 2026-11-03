@@ -207,7 +207,13 @@ class PlaybackStore
         if stream = invalid then return []
         sources = stream.sources
         if Type(sources) <> "roArray" then sources = stream.announce
-        if Type(sources) <> "roArray" then return []
+        if Type(sources) <> "roArray"
+            url = m.AsText(stream.url)
+            if m.IsMagnet(url) then return m.ExtractMagnetTrackers(url)
+            ext = m.AsText(stream.externalUrl)
+            if m.IsMagnet(ext) then return m.ExtractMagnetTrackers(ext)
+            return []
+        end if
         trackers = []
         for each entry in sources
             text = m.AsText(entry)
@@ -487,11 +493,28 @@ class PlaybackStore
         ' calling Trim on it would throw out of the play handler instead of
         ' falling through to the torrent branch.
         url = m.AsText(stream.url)
-        if url <> ""
+        if url <> "" and not m.IsMagnet(url)
             result.ok = true
             result.url = url
             result.streamFormat = m.StreamFormat(stream, url)
+            headers = m.StreamHttpHeaders(stream)
+            if headers.Count() > 0 then result.httpHeaders = headers
             return result
+        end if
+
+        if url = "" and m.StreamInfoHash(stream) = ""
+            extUrl = m.AsText(stream.externalUrl)
+            if extUrl <> "" and not m.IsMagnet(extUrl)
+                extFmt = m.StreamFormat(stream, extUrl)
+                if extFmt <> ""
+                    result.ok = true
+                    result.url = extUrl
+                    result.streamFormat = extFmt
+                    headers = m.StreamHttpHeaders(stream)
+                    if headers.Count() > 0 then result.httpHeaders = headers
+                    return result
+                end if
+            end if
         end if
 
         infoHash = m.StreamInfoHash(stream)
@@ -518,14 +541,90 @@ class PlaybackStore
             result.fallbackUrl = ""
         end if
         result.streamFormat = m.StreamFormat(stream, result.url)
+        headers = m.StreamHttpHeaders(stream)
+        if headers.Count() > 0 then result.httpHeaders = headers
         result.ok = true
         return result
+    end function
+
+    ' Whether the given URL is a magnet link.
+    function IsMagnet(url as string) as boolean
+        if url = "" then return false
+        return LCase(url.Left(7)) = "magnet:"
+    end function
+
+    ' Extract the infoHash from a magnet link if present.
+    function ExtractMagnetHash(url as string) as string
+        if not m.IsMagnet(url) then return ""
+        lower = LCase(url)
+        needle = "xt=urn:btih:"
+        idx = lower.InStr(needle)
+        if idx < 0 then return ""
+        hashPart = lower.Mid(idx + needle.Len())
+        amp = hashPart.InStr("&")
+        if amp >= 0 then hashPart = hashPart.Left(amp)
+        return hashPart.Trim()
+    end function
+
+    ' Extract tracker announce URLs from a magnet link's tr= parameters.
+    function ExtractMagnetTrackers(url as string) as object
+        trackers = []
+        if not m.IsMagnet(url) then return trackers
+        pieces = url.Split("&")
+        if pieces = invalid then return trackers
+        for each piece in pieces
+            lower = LCase(piece)
+            if lower.Left(3) = "tr="
+                tr = piece.Mid(3).Trim()
+                if tr <> "" then trackers.Push(tr)
+            end if
+        end for
+        return trackers
+    end function
+
+    ' Extract request HTTP headers from behaviorHints (proxyHeaders or headers) or stream.headers.
+    function StreamHttpHeaders(stream as object) as object
+        headers = []
+        if stream = invalid then return headers
+        reqHeaders = invalid
+        if stream.behaviorHints <> invalid and Type(stream.behaviorHints) = "roAssociativeArray"
+            if stream.behaviorHints.proxyHeaders <> invalid and Type(stream.behaviorHints.proxyHeaders) = "roAssociativeArray"
+                if stream.behaviorHints.proxyHeaders.request <> invalid and Type(stream.behaviorHints.proxyHeaders.request) = "roAssociativeArray"
+                    reqHeaders = stream.behaviorHints.proxyHeaders.request
+                end if
+            end if
+            if reqHeaders = invalid and stream.behaviorHints.headers <> invalid and Type(stream.behaviorHints.headers) = "roAssociativeArray"
+                reqHeaders = stream.behaviorHints.headers
+            end if
+        end if
+        if reqHeaders = invalid and stream.headers <> invalid and Type(stream.headers) = "roAssociativeArray"
+            reqHeaders = stream.headers
+        end if
+        if reqHeaders <> invalid
+            for each key in reqHeaders
+                val = m.AsText(reqHeaders[key])
+                if val <> "" then headers.Push(key + ": " + val)
+            end for
+        end if
+        return headers
     end function
 
     ' AsText for the same reason ResolvePlayback uses it: a hash that is not text
     ' is not a hash, and ToStr on a container throws rather than saying so.
     function StreamInfoHash(stream as object) as string
         if stream = invalid then return ""
+        hash = m.AsText(stream.infoHash)
+        if hash <> "" then return hash
+        url = m.AsText(stream.url)
+        if m.IsMagnet(url)
+            magnetHash = m.ExtractMagnetHash(url)
+            if magnetHash <> "" then return magnetHash
+        end if
+        ext = m.AsText(stream.externalUrl)
+        if m.IsMagnet(ext)
+            magnetHash = m.ExtractMagnetHash(ext)
+            if magnetHash <> "" then return magnetHash
+        end if
         return m.AsText(stream.infoHash)
     end function
 
@@ -538,7 +637,8 @@ class PlaybackStore
     ' here.
     function IsTorrent(stream as object) as boolean
         if stream = invalid then return false
-        if m.AsText(stream.url) <> "" then return false
+        url = m.AsText(stream.url)
+        if url <> "" and not m.IsMagnet(url) then return false
         return m.StreamInfoHash(stream) <> ""
     end function
 

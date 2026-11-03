@@ -464,6 +464,8 @@ sub onResolveResult()
             return
         end if
 
+        m.activeHttpHeaders = invalid
+        if result <> invalid and result.httpHeaders <> invalid then m.activeHttpHeaders = result.httpHeaders
         StartPlayback(result.url, result.streamFormat)
     catch e
         ' Printed on purpose: this catch used to swallow the failure in silence,
@@ -1329,6 +1331,9 @@ sub StartPlayback(url as string, streamFormat = "" as string)
     if params.position <> invalid and params.position > 0 then startOffset = params.position
     if startOffset > 0 then content.playStart = startOffset
     if streamFormat <> "" then content.streamFormat = streamFormat
+    if m.activeHttpHeaders <> invalid and Type(m.activeHttpHeaders) = "roArray" and m.activeHttpHeaders.Count() > 0
+        content.HttpHeaders = m.activeHttpHeaders
+    end if
 
     ' Guarded for the same reason trickPlayBar is, and because the warning this
     ' used to print on every single play ("Tried to set nonexistent field

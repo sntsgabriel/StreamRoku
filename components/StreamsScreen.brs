@@ -39,18 +39,23 @@ sub init()
     m.streamsPlaceholder = m.top.FindNode("streamsPlaceholder")
     m.bg = m.top.FindNode("streamBg")
     m.scrim = m.top.FindNode("bgScrim")
+    m.placeholderGroup = m.top.FindNode("placeholderGroup")
+    m.placeholderCard = m.top.FindNode("placeholderCard")
+    m.placeholderHint = m.top.FindNode("streamsPlaceholderHint")
     ' The language the panel was painted in — a language change repaints it.
     m.textsLanguage = ""
 
     t = Theme()
     m.bg.color = t.screenBg
-    m.scrim.color = t.scrim
+    m.scrim.color = "0x000000D4"
     m.headTitle.color = t.textPrimary
     m.headSub.color = t.accent
     m.synopsis.color = t.textSecondary
     m.status.color = t.accent
     m.providerName.color = t.textPrimary
-    m.streamsPlaceholder.color = t.textSecondary
+    m.streamsPlaceholder.color = t.textPrimary
+    if m.placeholderCard <> invalid then m.placeholderCard.color = t.tileFace
+    if m.placeholderHint <> invalid then m.placeholderHint.color = t.textSecondary
     m.filterStatus = m.top.FindNode("filterStatus")
     m.clearFilterBtn = m.top.FindNode("clearFilterBtn")
     if m.clearFilterBtn <> invalid then m.clearFilterBtn.ObserveField("buttonSelected", "ClearStreamFilters")
@@ -73,6 +78,7 @@ sub init()
     m.activeIndex = -1
     m.segments = []
     m.epMetaTask = invalid
+    m.userNavigatedProviders = false
 end sub
 
 function OnEnter(params as object) as void

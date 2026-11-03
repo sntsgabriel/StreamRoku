@@ -268,7 +268,8 @@
       "filtersHideAll": "No streams match the active filter. Press * to clear or change filters.",
       "clearFilters": "Clear filters",
       "filterHint": "* Filter streams",
-      "activeFilter": "Filter: {res}"
+      "activeFilter": "Filter: {res}",
+      "otherProvidersHint": "Other providers found streams. Use ◀ / ▶ to switch."
     },
     "player": {
       "sourceUnavailable": "This source is poorly available or your internet connection is not fast enough.",
@@ -680,7 +681,8 @@
       "filtersHideAll": "Ningún stream coincide con el filtro activo. Presiona * para borrar o cambiar filtros.",
       "clearFilters": "Limpiar filtros",
       "filterHint": "* Filtrar streams",
-      "activeFilter": "Filtro: {res}"
+      "activeFilter": "Filtro: {res}",
+      "otherProvidersHint": "Otros proveedores encontraron streams. Usa ◀ / ▶ para cambiar."
     },
     "player": {
       "sourceUnavailable": "Esta fuente está poco disponible o tu conexión a internet no es lo bastante rápida.",
@@ -1092,7 +1094,8 @@
       "filtersHideAll": "Nenhuma fonte corresponde ao filtro ativo. Pressione * para limpar ou alterar filtros.",
       "clearFilters": "Limpar filtros",
       "filterHint": "* Filtrar fontes",
-      "activeFilter": "Filtro: {res}"
+      "activeFilter": "Filtro: {res}",
+      "otherProvidersHint": "Outros provedores encontraram fontes. Use ◀ / ▶ para alternar."
     },
     "player": {
       "sourceUnavailable": "A fonte tem pouca disponibilidade ou a conexão não está rápida o suficiente. Volte e tente outra fonte.",

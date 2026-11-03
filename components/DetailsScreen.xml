@@ -29,6 +29,7 @@
              text stay readable. -->
         <Rectangle id="detailsBg" width="1920" height="1080" />
         <Poster id="bgPoster" width="1920" height="1080" loadDisplayMode="scaleToZoom" />
+        <Poster id="bgGradient" width="1920" height="1080" uri="pkg:/images/hero-gradient.png" loadDisplayMode="scaleToFill" />
         <Rectangle id="bgScrim" width="1920" height="1080" />
 
         <!-- Hero: left poster, right name/type/description. -->

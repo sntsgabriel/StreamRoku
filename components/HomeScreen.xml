@@ -24,7 +24,7 @@
     <script type="text/brightscript" uri="pkg:/source/util/HomeLayout.brs" />
 
     <children>
-        <Rectangle id="homeBg" width="1920" height="1080" color="0x0E1110FF" />
+        <Rectangle id="homeBg" width="1920" height="1080" color="0x0B0D12FF" />
 
         <!-- Immersive Hero Background Artwork (full screen 1920x1080 with crossfade and dark gradient) -->
         <Group id="heroArtworkGroup">
@@ -84,6 +84,25 @@
                     wrap="true"
                     font="font:SmallSystemFont" />
                 <Label id="heroProgress" translation="[0, 298]" width="1100" height="36" visible="false" font="font:SmallBoldSystemFont" />
+                <Group id="heroActionsGroup" translation="[0, 348]" visible="false">
+                    <Button
+                        id="heroWatchBtn"
+                        minWidth="200"
+                        maxWidth="280"
+                        height="48"
+                        text="Assistir"
+                        textFont="font:SmallBoldSystemFont"
+                        focusedTextFont="font:SmallBoldSystemFont" />
+                    <Button
+                        id="heroDetailsBtn"
+                        translation="[220, 0]"
+                        minWidth="200"
+                        maxWidth="280"
+                        height="48"
+                        text="Detalhes"
+                        textFont="font:SmallBoldSystemFont"
+                        focusedTextFont="font:SmallBoldSystemFont" />
+                </Group>
             </Group>
 
             <!-- Compatibility labels for headers and empty states -->
@@ -143,8 +162,8 @@
 
             <!-- User Profile Header (Netflix style) -->
             <Group id="profileGroup" translation="[24, 32]">
-                <Rectangle id="avatarBg" width="48" height="48" color="0x2BD675FF" />
-                <Label id="avatarInitial" translation="[14, 8]" width="24" height="32" text="U" font="font:MediumBoldSystemFont" color="0x0E1110FF" />
+                <Rectangle id="avatarBg" width="48" height="48" color="0x8B5CF6FF" />
+                <Label id="avatarInitial" translation="[14, 8]" width="24" height="32" text="U" font="font:MediumBoldSystemFont" color="0xFFFFFFFF" />
                 <Label id="profileName" translation="[64, 0]" width="224" height="36" text="" opacity="0"><Font role="font" uri="pkg:/fonts/OpenSans-Bold.ttf" size="24" /></Label>
                 <Label id="profileSub" translation="[64, 38]" width="224" height="28" text="" opacity="0"><Font role="font" uri="pkg:/fonts/OpenSans-Regular.ttf" size="20" /></Label>
             </Group>
@@ -155,7 +174,7 @@
             <RowList
                 id="rail"
                 translation="[16, 184]"
-                numRows="8"
+                numRows="9"
                 itemSize="[332, 88]"
                 itemSpacing="[0, 12]"
                 rowItemSize="[[332, 88]]"

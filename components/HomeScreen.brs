@@ -57,6 +57,11 @@ sub init()
     m.heroMeta = m.top.FindNode("heroMeta")
     m.heroDesc = m.top.FindNode("heroDesc")
     m.heroInfoGroup = m.top.FindNode("heroInfoGroup")
+    m.heroActionsGroup = m.top.FindNode("heroActionsGroup")
+    m.heroWatchBtn = m.top.FindNode("heroWatchBtn")
+    m.heroDetailsBtn = m.top.FindNode("heroDetailsBtn")
+    if m.heroWatchBtn <> invalid then m.heroWatchBtn.ObserveField("buttonSelected", "onHeroWatchSelected")
+    if m.heroDetailsBtn <> invalid then m.heroDetailsBtn.ObserveField("buttonSelected", "onHeroDetailsSelected")
     m.heroDebounceTimer = m.top.FindNode("heroDebounceTimer")
     m.heroCrossfadeAnim = m.top.FindNode("heroCrossfadeAnim")
 
@@ -508,10 +513,10 @@ end sub
 
 sub BuildRail()
     entries = [
-        { label: Lang("home", "navSearch"), glyph: "pkg:/images/search.png", screen: "searchScreen" }
         { label: Lang("home", "navHome"), glyph: "pkg:/images/nav-home.png", screen: "homeScreen", active: true }
-        { label: Lang("home", "navSeries"), glyph: "pkg:/images/nav-series.png", screen: "discoverScreen", params: { type: "series" } }
         { label: Lang("home", "navMovies"), glyph: "pkg:/images/nav-movies.png", screen: "discoverScreen", params: { type: "movie" } }
+        { label: Lang("home", "navSeries"), glyph: "pkg:/images/nav-series.png", screen: "discoverScreen", params: { type: "series" } }
+        { label: Lang("home", "navSearch"), glyph: "pkg:/images/search.png", screen: "searchScreen" }
         { label: Lang("home", "navLibrary"), glyph: "pkg:/images/library.png", screen: "libraryScreen" }
         { label: Lang("home", "navAddons"), glyph: "pkg:/images/puzzle.png", screen: "addonsScreen" }
         { label: Lang("home", "navSettings"), glyph: "pkg:/images/settings.png", screen: "settingsScreen" }
@@ -530,7 +535,7 @@ sub BuildRail()
         item.AddFields({menuExpanded: m.railExpanded, active: active})
     end for
     m.rail.content = content
-    m.rail.numRows = 8
+    m.rail.numRows = entries.Count()
     m.railBuilt = true
     m.railLanguage = TextsLanguage()
 end sub
@@ -561,7 +566,43 @@ end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
-    if key = "right" and m.rail.HasFocus()
+    if m.heroWatchBtn <> invalid and (m.heroWatchBtn.HasFocus() or (m.heroDetailsBtn <> invalid and m.heroDetailsBtn.HasFocus()))
+        if key = "down"
+            if m.catalog <> invalid
+                m.catalog.drawFocusFeedback = true
+                m.catalog.SetFocus(true)
+            end if
+            return true
+        else if key = "left"
+            if m.heroDetailsBtn <> invalid and m.heroDetailsBtn.HasFocus()
+                m.heroWatchBtn.SetFocus(true)
+                return true
+            else if m.heroWatchBtn.HasFocus()
+                SetHomeFocus(true)
+                return true
+            end if
+        else if key = "right"
+            if m.heroWatchBtn.HasFocus() and m.heroDetailsBtn <> invalid
+                m.heroDetailsBtn.SetFocus(true)
+                return true
+            end if
+        else if key = "back"
+            if m.catalog <> invalid
+                m.catalog.drawFocusFeedback = true
+                m.catalog.SetFocus(true)
+                return true
+            end if
+        end if
+    else if key = "up" and m.catalog <> invalid and m.catalog.HasFocus()
+        focused = m.catalog.rowItemFocused
+        if focused <> invalid and focused.Count() > 0 and focused[0] = 0
+            if m.heroWatchBtn <> invalid and m.heroActionsGroup <> invalid and m.heroActionsGroup.visible
+                m.catalog.drawFocusFeedback = false
+                m.heroWatchBtn.SetFocus(true)
+                return true
+            end if
+        end if
+    else if key = "right" and m.rail.HasFocus()
         SetHomeFocus(false)
         return true
     else if key = "left" and m.catalog.HasFocus()
@@ -585,6 +626,45 @@ function onKeyEvent(key as string, press as boolean) as boolean
     end if
     return false
 end function
+
+sub onHeroWatchSelected()
+    item = SelectedHeroItem()
+    if item = invalid or m.stores = invalid then return
+    focused = m.catalog.rowItemFocused
+    if focused = invalid or focused.Count() < 2 then return
+    row = focused[0]
+    index = focused[1]
+    if row < 0 or row >= m.gridRows.Count() then return
+
+    if m.gridRows[row].source = "library"
+        OpenContinueWatching(item)
+    else
+        m.top.pushRequest = {
+            screen: "detailsScreen"
+            params: {
+                addonAddress: m.gridRows[row].addonAddress
+                meta: item
+            }
+        }
+    end if
+end sub
+
+sub onHeroDetailsSelected()
+    item = SelectedHeroItem()
+    if item = invalid or m.stores = invalid then return
+    focused = m.catalog.rowItemFocused
+    if focused = invalid or focused.Count() < 2 then return
+    row = focused[0]
+    if row < 0 or row >= m.gridRows.Count() then return
+
+    m.top.pushRequest = {
+        screen: "detailsScreen"
+        params: {
+            addonAddress: m.gridRows[row].addonAddress
+            meta: item
+        }
+    }
+end sub
 
 sub onRowItemSelected(event as object)
     data = event.GetData()
@@ -695,6 +775,7 @@ sub UpdateCatalogFeedback()
         if m.heroDesc <> invalid then m.heroDesc.text = ""
         if m.heroMeta <> invalid then m.heroMeta.text = ""
         if m.heroProgress <> invalid then m.heroProgress.visible = false
+        if m.heroActionsGroup <> invalid then m.heroActionsGroup.visible = false
         if m.catalogRowsBuilt
             m.emptyState.text = Lang("home", "empty")
             if m.catalogRows.Count() > 0 then m.emptyState.text = Lang("home", "emptyHome")
@@ -873,6 +954,21 @@ sub RenderHomeHero(item as object)
         if m.heroBgNext <> invalid
             m.heroBgNext.uri = ""
             m.heroBgNext.opacity = 0.0
+        end if
+    end if
+
+    if m.heroActionsGroup <> invalid
+        hasItem = (item <> invalid and item.title <> invalid and item.title <> "")
+        m.heroActionsGroup.visible = hasItem
+        if hasItem and m.heroWatchBtn <> invalid
+            if item.progress <> invalid and item.progress > 0
+                m.heroWatchBtn.text = Lang("home", "resume")
+            else
+                m.heroWatchBtn.text = Lang("home", "watch")
+            end if
+        end if
+        if hasItem and m.heroDetailsBtn <> invalid
+            m.heroDetailsBtn.text = Lang("home", "moreInfo")
         end if
     end if
 end sub
