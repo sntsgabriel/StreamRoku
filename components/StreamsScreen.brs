@@ -120,6 +120,7 @@ function OnEnter(params as object) as void
 
     m.streams = []
     m.listFilled = false
+    m.userNavigatedProviders = false
     EmptyStreamsList()
 
     LoadStreams(params)
